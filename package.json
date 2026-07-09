@@ -23,6 +23,14 @@
     ],
     "license": "MIT",
     "icon": "media/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/pallj011/vscode-castaway.git"
+    },
+    "bugs": {
+        "url": "https://github.com/pallj011/vscode-castaway/issues"
+    },
+    "homepage": "https://github.com/pallj011/vscode-castaway#readme",
     "activationEvents": [
         "onStartupFinished"
     ],
