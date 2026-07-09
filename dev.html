@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Castaway — dev harness</title>
+    <link rel="stylesheet" href="media/castaway.css">
+    <style>
+        body { background: #1e1e1e; }
+        #islandCanvas { height: 70vh; }
+        .toolbar {
+            font-family: monospace;
+            padding: 8px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .toolbar button {
+            background: #333;
+            color: #eee;
+            border: 1px solid #555;
+            padding: 4px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="islandCanvas"></canvas>
+    <div class="toolbar" id="toolbar">
+        <button data-cmd="next-scene">Next scene</button>
+        <button data-cmd="toggle-graphics">Toggle graphics</button>
+        <button data-cmd="toggle-pause">Pause</button>
+    </div>
+
+    <script src="media/calendar.js"></script>
+    <script src="media/renderer.js"></script>
+    <script src="media/scenes.js"></script>
+    <script src="media/engine.js"></script>
+    <script>
+        // ?mode=modern&scene=droneDelivery&elapsed=6000&tod=night&text=large
+        const params = new URLSearchParams(location.search);
+        castawayApp.start('islandCanvas', params.get('mode') || 'classic',
+            params.get('text') || 'medium');
+        if (params.get('tod')) {
+            castawayApp.engine.calendar.getTimeOfDay = () => params.get('tod');
+        }
+        if (params.get('scene')) {
+            castawayApp.engine.setScene(params.get('scene'));
+        }
+        if (params.get('elapsed')) {
+            castawayApp.engine.sceneManager.sceneStartTime -=
+                parseInt(params.get('elapsed'), 10);
+        }
+
+        // Emulate extension-host messages with buttons + a scene picker.
+        const toolbar = document.getElementById('toolbar');
+        toolbar.addEventListener('click', (e) => {
+            const cmd = e.target.dataset && e.target.dataset.cmd;
+            if (cmd) window.postMessage({ command: cmd }, '*');
+        });
+        for (const key of Object.keys(castawayApp.engine.sceneManager.scenes)) {
+            const b = document.createElement('button');
+            b.textContent = key;
+            b.addEventListener('click', () =>
+                window.postMessage({ command: 'set-scene', scene: key }, '*'));
+            toolbar.appendChild(b);
+        }
+    </script>
+</body>
+</html>

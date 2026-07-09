@@ -1,0 +1,125 @@
+{
+    "name": "vscode-castaway",
+    "displayName": "Castaway",
+    "description": "A castaway survives on a desert island in your VS Code — now with drones, package deliveries, cell phones, and other modern conveniences that never quite work.",
+    "version": "0.1.4",
+    "engines": {
+        "vscode": "^1.73.0"
+    },
+    "publisher": "john-palli",
+    "author": {
+        "name": "John Palli"
+    },
+    "categories": [
+        "Other"
+    ],
+    "keywords": [
+        "castaway",
+        "island",
+        "screensaver",
+        "pets",
+        "drone",
+        "fun"
+    ],
+    "license": "MIT",
+    "icon": "media/icon.png",
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "views": {
+            "explorer": [
+                {
+                    "type": "webview",
+                    "id": "castawayView",
+                    "name": "Castaway",
+                    "when": "vscode-castaway.position == 'explorer'"
+                }
+            ]
+        },
+        "commands": [
+            {
+                "command": "vscode-castaway.start",
+                "title": "Start Island Session",
+                "category": "Castaway"
+            },
+            {
+                "command": "vscode-castaway.next-scene",
+                "title": "Next Scene",
+                "category": "Castaway"
+            },
+            {
+                "command": "vscode-castaway.choose-scene",
+                "title": "Choose Scene...",
+                "category": "Castaway"
+            },
+            {
+                "command": "vscode-castaway.toggle-graphics",
+                "title": "Toggle Graphics Mode (Classic/Modern)",
+                "category": "Castaway"
+            },
+            {
+                "command": "vscode-castaway.toggle-pause",
+                "title": "Pause/Resume",
+                "category": "Castaway"
+            },
+            {
+                "command": "vscode-castaway.order-package",
+                "title": "Order a Package (Drone Delivery)",
+                "category": "Castaway"
+            },
+            {
+                "command": "vscode-castaway.check-phone",
+                "title": "Check the Phone",
+                "category": "Castaway"
+            }
+        ],
+        "configuration": {
+            "title": "Castaway",
+            "properties": {
+                "vscode-castaway.graphicsMode": {
+                    "type": "string",
+                    "enum": [
+                        "classic",
+                        "modern"
+                    ],
+                    "default": "classic",
+                    "description": "Classic (1992 VGA pixel look) or modern (gradients and effects) rendering."
+                },
+                "vscode-castaway.position": {
+                    "type": "string",
+                    "enum": [
+                        "panel",
+                        "explorer"
+                    ],
+                    "default": "panel",
+                    "description": "Where the island lives: a dedicated editor panel or the Explorer sidebar."
+                },
+                "vscode-castaway.textSize": {
+                    "type": "string",
+                    "enum": [
+                        "small",
+                        "medium",
+                        "large",
+                        "x-large"
+                    ],
+                    "default": "medium",
+                    "description": "Size of speech bubbles and on-screen text. Try large or x-large if text is hard to read in the sidebar."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "smoke": "node test/smoke.js",
+        "test": "npm run compile && npm run smoke",
+        "package": "vsce package"
+    },
+    "devDependencies": {
+        "@types/node": "^18.x",
+        "@types/vscode": "^1.73.0",
+        "typescript": "^5.4.0"
+    }
+}

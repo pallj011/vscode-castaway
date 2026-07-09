@@ -1,0 +1,24 @@
+{
+  "name": "johnny-castaway",
+  "version": "1.0.0",
+  "description": "Modern recreation of the classic Johnny Castaway screensaver",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "package:win": "electron-builder --win",
+    "package:mac": "electron-builder --mac",
+    "package:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "screensaver",
+    "johnny-castaway",
+    "animation",
+    "nostalgia"
+  ],
+  "author": "Recreation Project",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
