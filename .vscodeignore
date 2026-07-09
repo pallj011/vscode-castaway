@@ -2,6 +2,7 @@
 .claude/**
 scripts/**
 media/icon.svg
+docs/**
 src/**
 test/**
 legacy/**

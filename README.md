@@ -1,5 +1,7 @@
 # Castaway for VS Code
 
+![Castaway demo: drone delivery, campfire at night, and the robot vacuum](docs/demo.gif)
+
 A Johnny Castaway–style island survivor who lives in your editor — built on the
 architecture of [vscode-pets](https://github.com/tonybaloney/vscode-pets), with
 the 1992 desert-island premise dragged kicking and screaming into the modern
