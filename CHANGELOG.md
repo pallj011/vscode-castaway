@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5 — 2026-07-09
+
+Marketplace housekeeping.
+
+- Source now on GitHub: https://github.com/pallj011/vscode-castaway
+  (`repository`/`bugs`/`homepage` links on the marketplace page)
+- README demo GIF: drone delivery, the campfire at night, and the roomba
+  (`scripts/make-demo.js` regenerates it via headless Chrome + ffmpeg)
+
 ## 0.1.4 — 2026-07-09
 
 Readability and behavior fixes.
