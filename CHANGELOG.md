@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.1.6 — 2026-08-01
+
+Five new scenes and a sidebar readability pass.
+
+- New scenes: **Password Reset** (the 2FA code was sent via SMS — to the
+  phone with zero bars), **Message in a Bottle** (shipped with real-time
+  tracking: label created, awaiting pickup, ETA 2041), **Smart Doorbell**
+  (motion detected: crab), **Targeted Advertising** (a plane tows an
+  `ESCAPE TO PARADISE` banner past the island), and **Asking the AI**
+  ("Great question! Step 1: book a ferry.")
+- New props to match: a scuttling crab, a corked message bottle, a smart
+  doorbell with a blinking camera LED, and a banner-towing prop plane
+- Hero props (phones, laptop, satellite dish, Wilson, signal bars) now scale
+  up in narrow panels the way speech-bubble text already did, so every scene
+  stays readable in the Explorer sidebar
+- Iconic floating status indicators, in the signal-bars idiom: a download
+  arrow + progress track above the satellite laptop, buffering dots and a
+  blinking red X above the video-call phone, and a 2FA code field with a
+  blinking caret (red-slashed after lockout) above the login laptop
+- Clouds drift continuously across the sky instead of blinking in and out
+  and teleporting every second
+- Sleeping Zs are white at night — they were drawn black on a near-black sky
+- Stargazing no longer enters the daytime scene rotation
+- The classic-mode evening sun is now a deep red that reads against the
+  orange sunset sky instead of vanishing into it
+- Canvas state-leak fixes: laptop and banner text settings no longer bleed
+  into later draws
+
 ## 0.1.5 — 2026-07-09
 
 Marketplace housekeeping.
