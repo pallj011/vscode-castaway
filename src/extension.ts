@@ -23,9 +23,14 @@ const SCENES: { id: string; label: string; detail: string }[] = [
     { id: 'robotVacuum', label: 'Robot Vacuum', detail: 'It keeps the sand tidy' },
     { id: 'wilson', label: 'Wilson', detail: 'A volleyball is a fine conversationalist' },
     { id: 'stargazing', label: 'Stargazing', detail: 'Shooting stars, satellites, and one very specific wish' },
+    { id: 'passwordReset', label: 'Password Reset', detail: 'The code was sent to your phone. Yes. That phone' },
+    { id: 'messageInABottle', label: 'Message in a Bottle', detail: 'Now with real-time tracking' },
+    { id: 'smartDoorbell', label: 'Smart Doorbell', detail: 'Motion detected: crab' },
+    { id: 'skyAd', label: 'Targeted Advertising', detail: 'ESCAPE TO PARADISE — BOOK NOW!' },
+    { id: 'askingAI', label: 'Asking the AI', detail: '"Great question! Step 1: book a ferry."' },
 ];
 
-const PHONE_SCENES = ['phoneSignal', 'selfie', 'doomscrolling', 'videoCall'];
+const PHONE_SCENES = ['phoneSignal', 'selfie', 'doomscrolling', 'videoCall', 'passwordReset'];
 
 type GraphicsMode = 'classic' | 'modern';
 

@@ -324,12 +324,16 @@ class Renderer {
         }[timeOfDay];
 
         if (this.graphicsMode === 'classic') {
-            this.ctx.fillStyle = sunColor.body;
+            // Evening needs a deeper red: #FF6622 all but disappears against
+            // the flat #FF8844 evening sky.
+            const body = timeOfDay === 'evening' ? '#DD2200' : sunColor.body;
+            const hl = timeOfDay === 'evening' ? '#FF6633' : sunColor.hl;
+            this.ctx.fillStyle = body;
             this.ctx.beginPath();
             this.ctx.arc(pos.x, pos.y, 40, 0, Math.PI * 2);
             this.ctx.fill();
 
-            this.ctx.fillStyle = sunColor.hl;
+            this.ctx.fillStyle = hl;
             this.ctx.beginPath();
             this.ctx.arc(pos.x - 5, pos.y - 5, 15, 0, Math.PI * 2);
             this.ctx.fill();
@@ -1404,10 +1408,19 @@ class Renderer {
         ctx.stroke();
     }
 
+    // Hero props (phones, laptops, Wilson...) stay readable when the panel
+    // renders the scene small (Explorer sidebar): grow them as the view
+    // shrinks, capped so they stay halfway plausible. Companion to the
+    // speech-bubble font floor in drawSpeechBubble.
+    propScale() {
+        if (!this.viewScale || this.viewScale >= 0.75) return 1;
+        return Math.min(1.7, 0.75 / this.viewScale);
+    }
+
     // A smartphone. Centered on (x, y), rotated by opts.angle radians.
     drawPhone(x, y, opts = {}) {
         const ctx = this.ctx;
-        const s = opts.scale || 1;
+        const s = (opts.scale || 1) * this.propScale();
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(opts.angle || 0);
@@ -1434,19 +1447,152 @@ class Renderer {
     // Signal bars indicator above a point; bars = how many are filled (0-4).
     drawSignalBars(x, y, bars) {
         const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
         for (let i = 0; i < 4; i++) {
             const bh = 5 + i * 4;
             ctx.fillStyle = i < bars ? '#34C759' : 'rgba(0,0,0,0.25)';
-            ctx.fillRect(x + i * 7, y - bh, 5, bh);
+            ctx.fillRect(i * 7, -bh, 5, bh);
         }
         if (bars === 0) {
             ctx.strokeStyle = '#FF3B30';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(x - 6, y - 22);
-            ctx.lineTo(x + 30, y + 4);
+            ctx.moveTo(-6, -22);
+            ctx.lineTo(30, 4);
             ctx.stroke();
         }
+        ctx.restore();
+    }
+
+    // Floating download readout: a pulsing down-arrow and a progress track,
+    // drawSignalBars-style — pure shapes, no text, so it reads at any panel
+    // size and can stay up while speech bubbles come and go. Anchored to the
+    // prop's ground point (x, yBase) and floats `lift` px above it.
+    drawDownloadStatus(x, yBase, progress, frame, lift = 50) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, yBase);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+        const y = -lift;
+
+        // Down arrow, bobbing gently while the bytes trickle in
+        const bob = Math.sin(frame * 0.12) * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-31.5, y - 5 + bob);
+        ctx.lineTo(-28.5, y - 5 + bob);
+        ctx.lineTo(-28.5, y + bob);
+        ctx.lineTo(-25, y + bob);
+        ctx.lineTo(-30, y + 6 + bob);
+        ctx.lineTo(-35, y + bob);
+        ctx.lineTo(-31.5, y + bob);
+        ctx.closePath();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+
+        // Progress track + the green sliver of hope
+        const w = 44;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(-18, y - 3, w, 7, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#34C759';
+        ctx.beginPath();
+        ctx.roundRect(-16.5, y - 1.5, Math.max(2, (w - 3) * progress), 4, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Floating 2FA code entry: six empty boxes and a blinking caret, waiting
+    // for a code that is never coming. locked: red, with the slash of defeat.
+    // Anchored to the prop's ground point (x, yBase), floats `lift` px up.
+    drawCodeBoxes(x, yBase, frame, locked = false, lift = 46) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, yBase);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+        const y = -lift;
+        const bw = 8;
+        const bh = 11;
+        const gap = 2.5;
+        const total = 6 * bw + 5 * gap;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.strokeStyle = locked ? '#FF3B30' : 'rgba(0, 0, 0, 0.7)';
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 6; i++) {
+            const bx = -total / 2 + i * (bw + gap);
+            ctx.beginPath();
+            ctx.roundRect(bx, y - bh, bw, bh, 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        if (locked) {
+            // The zero-bars slash, reprised
+            ctx.strokeStyle = '#FF3B30';
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-total / 2 - 3, y + 3);
+            ctx.lineTo(total / 2 + 3, y - bh - 3);
+            ctx.stroke();
+        } else if (frame % 60 < 32) {
+            // Caret blinking in the first box
+            ctx.strokeStyle = '#1C6FD4';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-total / 2 + bw / 2, y - bh + 2);
+            ctx.lineTo(-total / 2 + bw / 2, y - 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // Buffering dots (or a blinking failure ✕) floating above a phone —
+    // same iconic idiom as drawSignalBars.
+    drawBufferDots(x, y, frame, failed = false) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        if (failed) {
+            if (frame % 40 < 25) {
+                ctx.strokeStyle = '#FF3B30';
+                ctx.lineWidth = 2.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-4, -4);
+                ctx.lineTo(4, 4);
+                ctx.moveTo(4, -4);
+                ctx.lineTo(-4, 4);
+                ctx.stroke();
+            }
+        } else {
+            for (let i = 0; i < 3; i++) {
+                const phase = (Math.sin(frame * 0.15 - i * 0.9) + 1) / 2;
+                ctx.globalAlpha = 0.35 + phase * 0.65;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc((i - 1) * 8, 0, 2.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
     }
 
     drawSpeechBubble(x, y, text, opts = {}) {
@@ -1529,59 +1675,82 @@ class Renderer {
     }
 
     // An open laptop on the sand. progress is 0..1 for the on-screen bar.
+    // Anchored at the bottom center (x, y); grows upward when prop-scaled.
+    // opts.closed: lid shut — the conversation is over.
     drawLaptop(x, y, opts = {}) {
         const ctx = this.ctx;
+        ctx.save(); // scoped: transform + font/textAlign stay local
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
         // Base
         ctx.fillStyle = '#4A4A4A';
         ctx.beginPath();
-        ctx.moveTo(x - 26, y);
-        ctx.lineTo(x + 26, y);
-        ctx.lineTo(x + 22, y - 8);
-        ctx.lineTo(x - 22, y - 8);
+        ctx.moveTo(-26, 0);
+        ctx.lineTo(26, 0);
+        ctx.lineTo(22, -8);
+        ctx.lineTo(-22, -8);
         ctx.closePath();
         ctx.fill();
 
+        if (opts.closed) {
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.roundRect(-23, -13, 46, 6, 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
         // Screen
         ctx.fillStyle = '#333';
-        ctx.fillRect(x - 22, y - 40, 44, 32);
+        ctx.fillRect(-22, -40, 44, 32);
         ctx.fillStyle = '#0B2239';
-        ctx.fillRect(x - 19, y - 37, 38, 26);
+        ctx.fillRect(-19, -37, 38, 26);
 
         if (opts.progress !== undefined) {
             ctx.fillStyle = '#DDD';
             ctx.font = `${6 * (this.textScale || 1)}px monospace`;
             ctx.textAlign = 'center';
-            ctx.fillText(opts.label || 'DOWNLOADING…', x, y - 30);
+            ctx.fillText(opts.label || 'DOWNLOADING…', 0, -30);
 
             ctx.strokeStyle = '#DDD';
             ctx.lineWidth = 1;
-            ctx.strokeRect(x - 15, y - 26, 30, 6);
+            ctx.strokeRect(-15, -26, 30, 6);
             ctx.fillStyle = '#34C759';
-            ctx.fillRect(x - 14, y - 25, Math.max(1, 28 * opts.progress), 4);
+            ctx.fillRect(-14, -25, Math.max(1, 28 * opts.progress), 4);
 
             ctx.fillStyle = '#DDD';
-            ctx.fillText(opts.eta || '', x, y - 15);
+            ctx.fillText(opts.eta || '', 0, -15);
         }
+        ctx.restore();
     }
 
     // Satellite internet dish on a tripod, pointed hopefully at the sky.
+    // Anchored at the tripod feet (x, y); grows upward when prop-scaled.
     drawSatDish(x, y, frame) {
         const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
         // Tripod
         ctx.strokeStyle = '#666';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(x, y - 24);
-        ctx.lineTo(x - 12, y);
-        ctx.moveTo(x, y - 24);
-        ctx.lineTo(x + 12, y);
-        ctx.moveTo(x, y - 24);
-        ctx.lineTo(x, y - 2);
+        ctx.moveTo(0, -24);
+        ctx.lineTo(-12, 0);
+        ctx.moveTo(0, -24);
+        ctx.lineTo(12, 0);
+        ctx.moveTo(0, -24);
+        ctx.lineTo(0, -2);
         ctx.stroke();
 
         // Dish
         ctx.save();
-        ctx.translate(x, y - 30);
+        ctx.translate(0, -30);
         ctx.rotate(-0.5);
         ctx.fillStyle = '#EDEDED';
         ctx.beginPath();
@@ -1598,10 +1767,11 @@ class Renderer {
             ctx.lineWidth = 2;
             for (let i = 1; i <= 3; i++) {
                 ctx.beginPath();
-                ctx.arc(x + 10, y - 44, i * 8, -1.9, -0.7);
+                ctx.arc(10, -44, i * 8, -1.9, -0.7);
                 ctx.stroke();
             }
         }
+        ctx.restore();
     }
 
     // A food-delivery jetski that has clearly got the wrong address.
@@ -1708,11 +1878,17 @@ class Renderer {
     }
 
     // Wilson. He's a good listener.
+    // Anchored where he rests on the sand (x, y).
     drawWilson(x, y) {
         const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
         ctx.fillStyle = '#F5F0E1';
         ctx.beginPath();
-        ctx.arc(x, y - 12, 12, 0, Math.PI * 2);
+        ctx.arc(0, -12, 12, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#C8BFA6';
         ctx.lineWidth = 1.5;
@@ -1720,26 +1896,197 @@ class Renderer {
 
         // Seams
         ctx.beginPath();
-        ctx.arc(x - 8, y - 12, 12, -0.6, 0.6);
-        ctx.moveTo(x + 12, y - 16);
-        ctx.arc(x + 8, y - 12, 12, Math.PI - 0.6, Math.PI + 0.6, true);
+        ctx.arc(-8, -12, 12, -0.6, 0.6);
+        ctx.moveTo(12, -16);
+        ctx.arc(8, -12, 12, Math.PI - 0.6, Math.PI + 0.6, true);
         ctx.stroke();
 
         // The face, printed in something we won't ask about
         ctx.fillStyle = '#A0522D';
         ctx.beginPath();
-        ctx.arc(x, y - 12, 7, 0, Math.PI * 2);
+        ctx.arc(0, -12, 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#F5F0E1';
         ctx.beginPath();
-        ctx.arc(x - 2.5, y - 14, 1.5, 0, Math.PI * 2);
-        ctx.arc(x + 2.5, y - 14, 1.5, 0, Math.PI * 2);
+        ctx.arc(-2.5, -14, 1.5, 0, Math.PI * 2);
+        ctx.arc(2.5, -14, 1.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#F5F0E1';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(x, y - 11, 3.5, 0.4, Math.PI - 0.4);
+        ctx.arc(0, -11, 3.5, 0.4, Math.PI - 0.4);
         ctx.stroke();
+        ctx.restore();
+    }
+
+    // A corked message bottle bobbing on the water (or mid-throw).
+    drawBottle(x, y, frame) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y + Math.sin(frame * 0.08) * 2.5);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+        ctx.rotate(Math.sin(frame * 0.08 + 1) * 0.12);
+
+        // Green glass body, lying on its side
+        ctx.fillStyle = 'rgba(96, 165, 120, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(-9, -4, 14, 8, 3.5);
+        ctx.fill();
+        // Neck + cork
+        ctx.fillRect(4, -2, 5, 4);
+        ctx.fillStyle = '#B98A4A';
+        ctx.fillRect(9, -2.2, 3, 4.4);
+        // The note. It says "SEND SNACKS."
+        ctx.fillStyle = 'rgba(245, 240, 220, 0.95)';
+        ctx.fillRect(-6, -2, 6, 4);
+        ctx.restore();
+    }
+
+    // A crab. Walks sideways, as is traditional.
+    drawCrab(x, y, frame) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        // Scuttling legs, three per side
+        ctx.strokeStyle = '#C24328';
+        ctx.lineWidth = 1.6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let i = -1; i <= 1; i++) {
+            const lift = Math.sin(frame * 0.5 + i * 2.1) * 2;
+            ctx.moveTo(-5, 1);
+            ctx.lineTo(-10 + i * 3, 5 - Math.max(0, lift));
+            ctx.moveTo(5, 1);
+            ctx.lineTo(10 + i * 3, 5 - Math.max(0, -lift));
+        }
+        ctx.stroke();
+
+        // Shell + claws
+        ctx.fillStyle = '#E05438';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 8, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-9, -3, 2.5, 0, Math.PI * 2);
+        ctx.arc(9, -3, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye stalks
+        ctx.strokeStyle = '#8A2F1C';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-2, -4);
+        ctx.lineTo(-3, -7.5);
+        ctx.moveTo(2, -4);
+        ctx.lineTo(3, -7.5);
+        ctx.stroke();
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(-3, -8.5, 1.4, 0, Math.PI * 2);
+        ctx.arc(3, -8.5, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // A smart doorbell, strapped to the palm tree. Obviously.
+    // active: something is in frame — blink the camera LED.
+    drawDoorbell(x, y, frame, active = false) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        // Body puck
+        ctx.fillStyle = '#1C2733';
+        ctx.beginPath();
+        ctx.roundRect(-5, -10, 10, 20, 4);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Camera lens with status ring
+        ctx.fillStyle = '#0A0F14';
+        ctx.beginPath();
+        ctx.arc(0, -4, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = active && frame % 30 < 15 ? '#4FC3F7' : '#265A73';
+        ctx.beginPath();
+        ctx.arc(0, -4, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Doorbell button, in case a guest ever drops by
+        ctx.fillStyle = active ? '#4FC3F7' : '#3A4A5A';
+        ctx.beginPath();
+        ctx.arc(0, 4, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // A little prop plane flying left, towing an ad banner behind it.
+    drawBannerPlane(x, y, frame, text) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y + Math.sin(frame * 0.08) * 3);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        // Banner first, trailing to the right, fluttering gently
+        const flut = Math.sin(frame * 0.08 + 0.9) * 1.5;
+        ctx.font = `bold ${12 * (this.textScale || 1)}px monospace`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(text).width + 14;
+        ctx.strokeStyle = 'rgba(60, 60, 60, 0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(14, -2);
+        ctx.lineTo(34, -8 + flut);
+        ctx.moveTo(14, 2);
+        ctx.lineTo(34, 10 + flut);
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(34, -8 + flut, w, 18);
+        ctx.strokeStyle = '#CC3333';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(34, -8 + flut, w, 18);
+        ctx.fillStyle = '#CC2222';
+        ctx.fillText(text, 41, 1 + flut);
+
+        // Fuselage, nose to the left
+        ctx.fillStyle = '#D64541';
+        ctx.beginPath();
+        ctx.roundRect(-20, -5, 32, 10, 5);
+        ctx.fill();
+        // Tail fin
+        ctx.beginPath();
+        ctx.moveTo(6, -4);
+        ctx.lineTo(12, -13);
+        ctx.lineTo(14, -4);
+        ctx.closePath();
+        ctx.fill();
+        // Wing (side view)
+        ctx.fillStyle = '#B03A36';
+        ctx.beginPath();
+        ctx.ellipse(-3, 2, 9, 3, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        // Cockpit window
+        ctx.fillStyle = '#BFE8F5';
+        ctx.beginPath();
+        ctx.arc(-13, -1.5, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Propeller blur
+        ctx.fillStyle = 'rgba(150, 150, 150, 0.65)';
+        ctx.beginPath();
+        ctx.ellipse(-21, 0, 2,
+            7 * (0.4 + Math.abs(Math.sin(frame * 0.9)) * 0.6), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     // Camera-flash overlay for selfies.
@@ -1824,12 +2171,14 @@ class Renderer {
 
     drawBanner(x, y, text) {
         const ts = this.textScale || 1;
+        this.ctx.save(); // don't leak font/textAlign to later draws
         this.ctx.fillStyle = '#FFFFFF';
         this.ctx.fillRect(x - 80 * ts, y, 160 * ts, 30 * ts);
         this.ctx.fillStyle = '#FF0000';
         this.ctx.font = `${14 * ts}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.fillText(text, x, y + 20 * ts);
+        this.ctx.restore();
     }
 
     drawCloud(x, y, size = 1) {

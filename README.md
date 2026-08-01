@@ -29,6 +29,11 @@ driftwood teepee, a stone ring, rising embers, and drifting smoke.
 | Robot Vacuum | It came in one of the boxes. It cruises, bumps, spins in place, and wanders off in a new direction. The sand gets tidied eventually. |
 | Wilson | A volleyball is a fine conversationalist. |
 | Stargazing | Shooting stars, a passing satellite, and one very specific wish. |
+| Password Reset | The login code was sent via SMS. To his phone. The one with no bars. |
+| Message in a Bottle | Shipped with real-time tracking: label created, awaiting pickup, ETA 2041. It's still visible from shore. |
+| Smart Doorbell | Mounted on the palm. Motion detected: crab. Motion detected: crab (again). Worth every penny. |
+| Targeted Advertising | A plane tows a banner past the island: `ESCAPE TO PARADISE — BOOK NOW!` |
+| Asking the AI | "Great question! Step 1: book a ferry." The half-built raft declines to comment. |
 
 The island follows your clock through a full day: golden sunrise, bright
 afternoon, orange-and-purple sunset, and a proper night — crescent moon with

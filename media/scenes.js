@@ -75,7 +75,9 @@ class SceneManager {
                     this.renderer.drawJohnnyLying(state.johnnyX, state.johnnyY);
 
                     if (state.zzz % 60 < 40) {
-                        ctx.fillStyle = '#000';
+                        // White at night — black Zs vanish against the dark sky.
+                        ctx.fillStyle = this.calendar.isNight()
+                            ? 'rgba(255, 255, 255, 0.9)' : '#000';
                         ctx.font = `${20 * this.renderer.textScale}px Arial`;
                         ctx.fillText('Z', state.johnnyX, state.johnnyY - 30);
                         if (state.zzz % 60 > 20) {
@@ -425,9 +427,17 @@ class SceneManager {
                     const t = Date.now() - this.sceneStartTime;
                     const gy = groundY();
 
-                    // Phone propped against a delivery box — improvised tripod
-                    this.renderer.drawPackage(state.boxX, gy + 4, 0.8);
-                    this.renderer.drawPhone(state.boxX - 22, gy - 12, { lit: true, angle: -0.15 });
+                    // Phone propped against a delivery box — improvised tripod.
+                    // The box scales with the phone (propScale) so the rig
+                    // stays readable in a narrow sidebar.
+                    const ps = this.renderer.propScale();
+                    this.renderer.drawPackage(state.boxX, gy + 4, 0.8 * ps);
+                    this.renderer.drawPhone(state.boxX - 22 * ps, gy - 12 * ps,
+                        { lit: true, angle: -0.15 });
+                    // Call state as an icon above the phone: pulsing dots
+                    // while it tries, a blinking ✕ once it gives up.
+                    this.renderer.drawBufferDots(state.boxX - 22 * ps, gy - 34 * ps,
+                        this.frame, t >= 9000);
 
                     // Johnny waves at the phone
                     const waving = Math.floor(this.frame / 40) % 2 === 0;
@@ -443,11 +453,13 @@ class SceneManager {
                     } else {
                         status = 'CALL FAILED';
                     }
-                    this.renderer.drawSpeechBubble(state.boxX - 20, gy - 60, status, { tailDx: 5 });
+                    // Anchored right of the rig so its tail and box clear the
+                    // buffer dots floating above the phone in narrow panels.
+                    this.renderer.drawSpeechBubble(state.boxX + 25, gy - 70, status, { tailDx: 5 });
 
                     if (t >= 9000 && this.frame % 200 < 160) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 15, state.johnnyY - 115, 'Mom? MOM?');
+                            state.johnnyX - 15, state.johnnyY - 125, 'Mom? MOM?');
                     }
                 }
             },
@@ -457,21 +469,35 @@ class SceneManager {
                 duration: 16000,
                 weight: 10,
                 nightWeight: 8,
-                init: () => ({ johnnyX: 545, johnnyY: groundY() }),
+                init: () => ({
+                    johnnyX: 545,
+                    johnnyY: groundY(),
+                    // The laptop screen is decoration at small sizes, so the
+                    // download status also cycles through the speech bubble.
+                    captions: ['RESCUE_MAP.ZIP — 2%', 'ETA: 14 years.',
+                        'Should have got the premium plan.']
+                }),
                 update: (state) => state,
                 render: (state) => {
                     const gy = groundY();
+                    const progress = 0.02 + Math.sin(this.frame * 0.05) * 0.005;
                     this.renderer.drawSatDish(700, gy + 4, this.frame);
                     this.renderer.drawJohnny(state.johnnyX, state.johnnyY, 'sitting', this.frame);
                     this.renderer.drawLaptop(605, gy + 2, {
-                        progress: 0.02 + Math.sin(this.frame * 0.05) * 0.005,
+                        progress,
                         label: 'RESCUE_MAP.ZIP  2%',
                         eta: 'ETA: 14 YEARS'
                     });
-                    if (this.frame % 260 < 200) {
+                    // Iconic float above the laptop: readable at any size,
+                    // and up permanently — unlike the cycling bubble.
+                    this.renderer.drawDownloadStatus(605, gy + 2, progress, this.frame);
+                    const idx = Math.floor((Date.now() - this.sceneStartTime) / 3600) %
+                        state.captions.length;
+                    if (this.frame % 260 < 210) {
+                        // High enough that the bubble clears the download
+                        // float even at sidebar-view bubble sizes.
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 10, state.johnnyY - 95,
-                            'Should have got the premium plan.');
+                            state.johnnyX - 10, state.johnnyY - 105, state.captions[idx]);
                     }
                 }
             },
@@ -598,7 +624,7 @@ class SceneManager {
             stargazing: {
                 name: 'Stargazing',
                 duration: 17000,
-                weight: 3,
+                weight: 0, // never in rotation by day — there are no stars to gaze at
                 nightWeight: 22,
                 init: () => ({
                     johnnyX: 570,
@@ -637,6 +663,267 @@ class SceneManager {
                     if (line) {
                         this.renderer.drawSpeechBubble(
                             state.johnnyX + 15, state.johnnyY - 60, line);
+                    }
+                }
+            },
+
+            passwordReset: {
+                name: 'Password Reset',
+                duration: 16000,
+                weight: 9,
+                nightWeight: 8,
+                // Rig sits well left of the palm trunk (base ~628) so the
+                // dark laptop never fuses with the dark trunk.
+                init: () => ({ johnnyX: 505, johnnyY: groundY(), laptopX: 565 }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+                    const phonePhase = t >= 6000 && t < 12000;
+
+                    this.renderer.drawLaptop(state.laptopX, gy + 2, t < 12000
+                        ? { progress: 0, label: 'ENTER 2FA CODE', eta: 'SENT VIA SMS' }
+                        : { progress: 0, label: 'TOO MANY ATTEMPTS', eta: 'WAIT 15 MIN' });
+
+                    if (phonePhase) {
+                        // Up and hunting for the one bar the code needs
+                        this.renderer.drawJohnny(
+                            state.johnnyX, state.johnnyY, 'armUp', this.frame);
+                        const hand = this.renderer.raisedHandPos(
+                            state.johnnyX, state.johnnyY);
+                        this.renderer.drawPhone(hand.x, hand.y - 8, { lit: true, angle: -0.2 });
+                        this.renderer.drawSignalBars(hand.x + 14, hand.y - 18, 0);
+                    } else {
+                        this.renderer.drawJohnny(
+                            state.johnnyX, state.johnnyY, 'sitting', this.frame);
+                        // The empty code field, floating where everyone can
+                        // read it. After lockout it gets the red slash.
+                        this.renderer.drawCodeBoxes(
+                            state.laptopX, gy + 2, this.frame, t >= 12000);
+                    }
+
+                    let line;
+                    if (t < 3800) {
+                        line = 'Finally! The login page loaded.';
+                    } else if (t < 6000) {
+                        line = 'Code sent to my phone. MY phone.';
+                    } else if (t < 12000) {
+                        line = 'No bars. No code. No login.';
+                    } else {
+                        line = "It's been 8 years. Just let me in.";
+                    }
+                    if (this.frame % 240 < 200) {
+                        this.renderer.drawSpeechBubble(
+                            state.johnnyX - 10, state.johnnyY - 115, line);
+                    }
+                }
+            },
+
+            messageInABottle: {
+                name: 'Message in a Bottle',
+                duration: 18000,
+                weight: 9,
+                nightWeight: 6,
+                init: () => ({
+                    johnnyX: 780,
+                    johnnyY: groundY(),
+                    statuses: ['Tracking: label created.',
+                        'Status: awaiting carrier pickup.',
+                        'Estimated delivery: 2041.',
+                        "It's RIGHT THERE."]
+                }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+                    const THROW = 1500;
+                    const FLIGHT = 900;
+
+                    // The bottle: in hand, then an arc into the water, then
+                    // bobbing ten feet away for the rest of time.
+                    const hand = this.renderer.raisedHandPos(state.johnnyX, state.johnnyY);
+                    if (t < THROW) {
+                        this.renderer.drawBottle(hand.x, hand.y - 6, this.frame);
+                    } else {
+                        const p = Math.min(1, (t - THROW) / FLIGHT);
+                        const bx = hand.x + (920 - hand.x) * p;
+                        const by = hand.y + (gy + 96 - hand.y) * p -
+                            Math.sin(p * Math.PI) * 60;
+                        this.renderer.drawBottle(bx, by, p < 1 ? 0 : this.frame);
+
+                        // Splash rings on arrival
+                        if (t >= THROW + FLIGHT && t < THROW + FLIGHT + 800) {
+                            const k = (t - THROW - FLIGHT) / 800;
+                            const ctx = this.renderer.ctx;
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${0.6 * (1 - k)})`;
+                            ctx.lineWidth = 1.5;
+                            ctx.beginPath();
+                            ctx.ellipse(920, gy + 98, 6 + k * 20, (6 + k * 20) * 0.35,
+                                0, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    }
+
+                    if (t < 3000) {
+                        this.renderer.drawJohnny(
+                            state.johnnyX, state.johnnyY, 'armUp', this.frame);
+                    } else {
+                        // Straight to obsessively refreshing the tracking page
+                        this.renderer.drawJohnny(
+                            state.johnnyX, state.johnnyY, 'sitting', this.frame);
+                        this.renderer.drawPhone(state.johnnyX + 14, gy - 26, {
+                            lit: true, angle: -0.5
+                        });
+                    }
+
+                    if (t < 1400) {
+                        this.renderer.drawSpeechBubble(
+                            state.johnnyX - 15, state.johnnyY - 115, 'Outgoing mail!');
+                    } else if (t > 4500 && this.frame % 220 < 180) {
+                        const idx = Math.floor((t - 4500) / 3200) %
+                            state.statuses.length;
+                        this.renderer.drawSpeechBubble(
+                            state.johnnyX + 5, state.johnnyY - 90, state.statuses[idx]);
+                    }
+                }
+            },
+
+            smartDoorbell: {
+                name: 'Smart Doorbell',
+                duration: 18000,
+                weight: 9,
+                nightWeight: 6,
+                init: () => ({ johnnyX: 545, johnnyY: groundY() }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+
+                    // Crab traffic: one pass each way across the front sand
+                    let crabX = null;
+                    if (t > 1500 && t < 7000) {
+                        crabX = 470 + ((t - 1500) / 5500) * 330;
+                    } else if (t > 8500 && t < 14000) {
+                        crabX = 800 - ((t - 8500) / 5500) * 330;
+                    }
+                    if (crabX !== null) {
+                        this.renderer.drawCrab(crabX, gy + 38, this.frame);
+                    }
+
+                    // Wilson rolls up for the finale
+                    if (t > 14200) {
+                        const wx = Math.max(700, 850 - ((t - 14200) / 1000) * 150);
+                        this.renderer.drawWilson(wx, gy + 8);
+                    }
+
+                    const motion = crabX !== null || (t > 14200 && t < 16000);
+                    this.renderer.drawDoorbell(647, gy - 58, this.frame, motion);
+
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY, 'standing', this.frame);
+                    this.renderer.drawPhone(state.johnnyX + 13, gy - 32, {
+                        lit: true, angle: -0.3
+                    });
+
+                    let line;
+                    if (t < 1500) {
+                        line = 'Smart doorbell: installed.';
+                    } else if (t < 7000) {
+                        line = 'Motion detected: crab.';
+                    } else if (t < 8500) {
+                        line = null; // a rare moment of security
+                    } else if (t < 14000) {
+                        line = 'Motion detected: crab (again).';
+                    } else if (t < 16000) {
+                        line = 'Motion detected: ball.';
+                    } else {
+                        line = 'Worth every penny.';
+                    }
+                    if (line && this.frame % 200 < 170) {
+                        this.renderer.drawSpeechBubble(
+                            state.johnnyX - 5, gy - 115, line);
+                    }
+                }
+            },
+
+            skyAd: {
+                name: 'Targeted Advertising',
+                duration: 15000,
+                weight: 8,
+                nightWeight: 0,
+                init: () => ({
+                    johnnyX: 700,
+                    johnnyY: groundY(),
+                    planeX: this.renderer.width + 180
+                }),
+                update: (state) => {
+                    state.planeX -= 2.4;
+                    return state;
+                },
+                renderFar: (state) => {
+                    if (state.planeX > -320) {
+                        this.renderer.drawBannerPlane(state.planeX, 95, this.frame,
+                            'ESCAPE TO PARADISE — BOOK NOW!');
+                    }
+                },
+                render: (state) => {
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY, 'standing', this.frame);
+
+                    let line = null;
+                    if (state.planeX < 900 && state.planeX > 250) {
+                        line = '"Escape to paradise," it says.';
+                    } else if (state.planeX <= 250) {
+                        line = 'I want to meet their ad team.';
+                    }
+                    if (line && this.frame % 220 < 190) {
+                        this.renderer.drawSpeechBubble(
+                            state.johnnyX - 15, state.johnnyY - 115, line);
+                    }
+                }
+            },
+
+            askingAI: {
+                name: 'Asking the AI',
+                duration: 18000,
+                weight: 9,
+                nightWeight: 14,
+                init: () => ({ johnnyX: 550, johnnyY: groundY() }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+
+                    // Exhibit A, right there on the sand
+                    this.drawRaft(690, gy + 12, 0.6);
+                    this.renderer.drawLaptop(610, gy + 2,
+                        t > 16000 ? { closed: true } : {});
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY, 'sitting', this.frame);
+
+                    // The AI "thinking" before each reply
+                    if ((t > 2600 && t < 3800) || (t > 9200 && t < 10600)) {
+                        this.renderer.drawBufferDots(610, gy - 52, this.frame);
+                    }
+
+                    const beats = [
+                        [0, 2600, 'johnny', 'How do I get off a desert island?'],
+                        [3800, 7200, 'ai', 'Great question! Step 1: book a ferry.'],
+                        [7200, 9200, 'johnny', 'There is no ferry.'],
+                        [10600, 14200, 'ai', "You're right! Try building a raft."],
+                        [14200, 16000, 'johnny', 'Day 2,947 of trying that.']
+                        // ...then he closes the laptop. Enough internet today.
+                    ];
+                    for (const [a, b, who, text] of beats) {
+                        if (t >= a && t < b) {
+                            if (who === 'johnny') {
+                                this.renderer.drawSpeechBubble(
+                                    state.johnnyX - 10, gy - 105, text);
+                            } else {
+                                this.renderer.drawSpeechBubble(
+                                    620, gy - 70, text, { tailDx: 5 });
+                            }
+                        }
                     }
                 }
             }
@@ -701,11 +988,13 @@ class SceneManager {
         // ships, jetskis) → island → palm → scene actors.
         this.renderer.drawBackground(timeOfDay, holiday);
 
-        if (this.frame % 120 < 60) {
-            this.renderer.drawCloud(200 + (this.frame % 800), 100, 0.8);
-        }
-        if (!isNight && this.frame % 150 < 75) {
-            this.renderer.drawCloud(800 + (this.frame % 600), 150, 1);
+        // Clouds drift continuously; wall-clock based so they don't jump
+        // when a scene change resets the frame counter.
+        const cloudT = Date.now() / 1000;
+        const cloudSpan = this.renderer.width + 320;
+        this.renderer.drawCloud(((cloudT * 14) % cloudSpan) - 160, 100, 0.8);
+        if (!isNight) {
+            this.renderer.drawCloud(((cloudT * 22 + 700) % cloudSpan) - 160, 150, 1);
         }
 
         if (this.currentScene.renderFar) {
