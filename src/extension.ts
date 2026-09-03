@@ -28,22 +28,29 @@ const SCENES: { id: string; label: string; detail: string }[] = [
     { id: 'smartDoorbell', label: 'Smart Doorbell', detail: 'Motion detected: crab' },
     { id: 'skyAd', label: 'Targeted Advertising', detail: 'ESCAPE TO PARADISE — BOOK NOW!' },
     { id: 'askingAI', label: 'Asking the AI', detail: '"Great question! Step 1: book a ferry."' },
+    { id: 'captcha', label: 'Prove You Are Not a Robot', detail: 'Select all squares with boats' },
+    { id: 'standup', label: 'Daily Standup', detail: 'Any blockers? Just the one' },
+    { id: 'voiceAssistant', label: 'Hey Coco', detail: 'Playing "Help" by The Beatles' },
+    { id: 'printer', label: 'Printer Says No', detail: 'Replace CYAN cartridge' },
 ];
 
-const PHONE_SCENES = ['phoneSignal', 'selfie', 'doomscrolling', 'videoCall', 'passwordReset'];
+const PHONE_SCENES = [
+    'phoneSignal', 'selfie', 'doomscrolling', 'videoCall', 'passwordReset',
+    'captcha',
+];
 
 type GraphicsMode = 'classic' | 'modern';
 
 function getConfiguredGraphicsMode(): GraphicsMode {
     return vscode.workspace
         .getConfiguration('vscode-castaway')
-        .get<GraphicsMode>('graphicsMode', 'classic');
+        .get<GraphicsMode>('graphicsMode', 'modern');
 }
 
 function getConfiguredPosition(): string {
     return vscode.workspace
         .getConfiguration('vscode-castaway')
-        .get<string>('position', 'panel');
+        .get<string>('position', 'explorer');
 }
 
 function getConfiguredTextSize(): string {
@@ -77,17 +84,6 @@ interface WebviewMessage {
     name?: string;
 }
 
-function handleWebviewMessage(message: WebviewMessage) {
-    switch (message.command) {
-        case 'info':
-            void vscode.window.showInformationMessage(message.text ?? '');
-            return;
-        case 'alert':
-            void vscode.window.showErrorMessage(message.text ?? '');
-            return;
-    }
-}
-
 /**
  * Shared behavior for the editor panel and the explorer view — both host the
  * same island webview and receive the same control messages.
@@ -95,6 +91,10 @@ function handleWebviewMessage(message: WebviewMessage) {
 abstract class IslandContainer {
     protected _disposables: vscode.Disposable[] = [];
     protected _graphicsMode: GraphicsMode;
+    /** Set once the webview reports its message listener is wired up. */
+    private _ready = false;
+    /** Commands issued while the webview is still loading. */
+    private _pending: Record<string, unknown>[] = [];
 
     constructor(
         protected readonly _extensionUri: vscode.Uri,
@@ -103,10 +103,53 @@ abstract class IslandContainer {
         this._graphicsMode = graphicsMode;
     }
 
-    protected abstract getWebview(): vscode.Webview;
+    /** The live webview, or undefined if this container has none right now. */
+    protected abstract tryGetWebview(): vscode.Webview | undefined;
 
+    /**
+     * Revealing the sidebar view loads its webview asynchronously, so a
+     * command fired at the same moment would otherwise land before the
+     * scripts are listening. Hold those messages until the webview says it
+     * is ready.
+     */
     public post(message: Record<string, unknown>): void {
-        void this.getWebview().postMessage(message);
+        const webview = this.tryGetWebview();
+        if (!webview) {
+            // No webview to talk to — it will read the current settings when
+            // it is next created.
+            return;
+        }
+        if (!this._ready) {
+            this._pending.push(message);
+            return;
+        }
+        void webview.postMessage(message);
+    }
+
+    protected handleWebviewMessage(message: WebviewMessage): void {
+        switch (message.command) {
+            case 'ready': {
+                this._ready = true;
+                const queued = this._pending;
+                this._pending = [];
+                for (const m of queued) {
+                    this.post(m);
+                }
+                return;
+            }
+            case 'info':
+                void vscode.window.showInformationMessage(message.text ?? '');
+                return;
+            case 'alert':
+                void vscode.window.showErrorMessage(message.text ?? '');
+                return;
+        }
+    }
+
+    /** Call whenever the webview HTML is (re)assigned. */
+    protected resetReady(): void {
+        this._ready = false;
+        this._pending = [];
     }
 
     public nextScene(): void {
@@ -183,10 +226,11 @@ class IslandPanel extends IslandContainer {
         graphicsMode: GraphicsMode,
     ) {
         super(extensionUri, graphicsMode);
+        this.resetReady();
         this._panel.webview.html = this.getHtml(this._panel.webview);
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.onDidReceiveMessage(
-            handleWebviewMessage,
+            (m: WebviewMessage) => this.handleWebviewMessage(m),
             null,
             this._disposables,
         );
@@ -219,7 +263,7 @@ class IslandPanel extends IslandContainer {
         );
     }
 
-    protected getWebview(): vscode.Webview {
+    protected tryGetWebview(): vscode.Webview | undefined {
         return this._panel.webview;
     }
 
@@ -239,38 +283,68 @@ class IslandViewProvider
 
     public resolveWebviewView(view: vscode.WebviewView): void {
         this._view = view;
+        this.resetReady();
         view.webview.options = getWebviewOptions(this._extensionUri);
         view.webview.html = this.getHtml(view.webview);
         view.webview.onDidReceiveMessage(
-            handleWebviewMessage,
+            (m: WebviewMessage) => this.handleWebviewMessage(m),
             null,
             this._disposables,
         );
-        view.onDidDispose(() => (this._view = undefined));
+        view.onDidDispose(() => {
+            this._view = undefined;
+            this.resetReady();
+        });
     }
 
-    public visible(): boolean {
+    /** The view exists — it may still be collapsed. */
+    public resolved(): boolean {
         return this._view !== undefined;
     }
 
-    protected getWebview(): vscode.Webview {
-        if (!this._view) {
-            throw new Error(
-                'Castaway view is not open — reveal it in the Explorer first.',
-            );
-        }
-        return this._view.webview;
+    /** The view exists and the user can actually see it. */
+    public visible(): boolean {
+        return this._view?.visible ?? false;
+    }
+
+    protected tryGetWebview(): vscode.Webview | undefined {
+        return this._view?.webview;
     }
 }
 
 let viewProvider: IslandViewProvider;
 
-/** The container the user is currently looking at (panel wins if open). */
-function activeContainer(extensionUri: vscode.Uri): IslandContainer {
+/**
+ * Expand the Castaway view in the Explorer. Resolves once VS Code has created
+ * the webview, so the caller can post to it straight away.
+ */
+async function revealView(): Promise<boolean> {
+    if (!viewProvider.visible()) {
+        try {
+            await vscode.commands.executeCommand(
+                `${IslandViewProvider.viewType}.focus`,
+            );
+        } catch {
+            // The view's `when` clause has not landed yet (or the Explorer is
+            // unavailable). Callers fall back to the editor panel.
+            return false;
+        }
+    }
+    return viewProvider.resolved();
+}
+
+/**
+ * The container the user is currently looking at. A panel wins if one is
+ * open; otherwise the configured home gets it — revealing the sidebar view
+ * when that is where the island lives.
+ */
+async function activeContainer(
+    extensionUri: vscode.Uri,
+): Promise<IslandContainer> {
     if (IslandPanel.currentPanel) {
         return IslandPanel.currentPanel;
     }
-    if (getConfiguredPosition() === 'explorer' && viewProvider.visible()) {
+    if (getConfiguredPosition() === 'explorer' && (await revealView())) {
         return viewProvider;
     }
     return IslandPanel.createOrShow(extensionUri);
@@ -298,72 +372,73 @@ export function activate(context: vscode.ExtensionContext) {
         ),
     );
 
-    const register = (id: string, fn: () => void) =>
+    const register = (id: string, fn: () => void | Promise<void>) =>
         context.subscriptions.push(vscode.commands.registerCommand(id, fn));
 
-    register('vscode-castaway.start', () => {
+    register('vscode-castaway.start', async () => {
+        // Open the island where the user chose to keep it.
+        if (getConfiguredPosition() === 'explorer' && (await revealView())) {
+            return;
+        }
         IslandPanel.createOrShow(context.extensionUri);
     });
 
-    register('vscode-castaway.next-scene', () => {
-        activeContainer(context.extensionUri).nextScene();
+    register('vscode-castaway.next-scene', async () => {
+        (await activeContainer(context.extensionUri)).nextScene();
     });
 
-    register('vscode-castaway.toggle-pause', () => {
-        activeContainer(context.extensionUri).togglePause();
+    register('vscode-castaway.toggle-pause', async () => {
+        (await activeContainer(context.extensionUri)).togglePause();
     });
 
-    register('vscode-castaway.toggle-graphics', () => {
-        const mode = activeContainer(context.extensionUri).toggleGraphicsMode();
+    register('vscode-castaway.toggle-graphics', async () => {
+        const container = await activeContainer(context.extensionUri);
+        const mode = container.toggleGraphicsMode();
         void vscode.window.showInformationMessage(
             `Castaway graphics: ${mode}`,
         );
     });
 
-    register('vscode-castaway.order-package', () => {
-        activeContainer(context.extensionUri).setScene('droneDelivery');
+    register('vscode-castaway.order-package', async () => {
+        (await activeContainer(context.extensionUri)).setScene('droneDelivery');
     });
 
-    register('vscode-castaway.check-phone', () => {
+    register('vscode-castaway.check-phone', async () => {
         const scene =
             PHONE_SCENES[Math.floor(Math.random() * PHONE_SCENES.length)];
-        activeContainer(context.extensionUri).setScene(scene);
+        (await activeContainer(context.extensionUri)).setScene(scene);
     });
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand('vscode-castaway.choose-scene', async () => {
-            const pick = await vscode.window.showQuickPick(
-                SCENES.map((s) => ({
-                    label: s.label,
-                    detail: s.detail,
-                    id: s.id,
-                })),
-                { placeHolder: 'What should the castaway do?' },
-            );
-            if (pick) {
-                activeContainer(context.extensionUri).setScene(pick.id);
-            }
-        }),
-    );
+    register('vscode-castaway.choose-scene', async () => {
+        const pick = await vscode.window.showQuickPick(
+            SCENES.map((s) => ({
+                label: s.label,
+                detail: s.detail,
+                id: s.id,
+            })),
+            { placeHolder: 'What should the castaway do?' },
+        );
+        if (pick) {
+            (await activeContainer(context.extensionUri)).setScene(pick.id);
+        }
+    });
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('vscode-castaway.position')) {
                 updatePositionContext();
             }
+            // Both containers track the new setting even when they have no
+            // webview open, so a view revealed later starts in the right mode.
             if (e.affectsConfiguration('vscode-castaway.graphicsMode')) {
                 const mode = getConfiguredGraphicsMode();
                 IslandPanel.currentPanel?.setGraphicsMode(mode);
-                if (viewProvider.visible()) {
-                    viewProvider.setGraphicsMode(mode);
-                }
+                viewProvider.setGraphicsMode(mode);
             }
             if (e.affectsConfiguration('vscode-castaway.textSize')) {
                 const size = getConfiguredTextSize();
                 IslandPanel.currentPanel?.setTextSize(size);
-                if (viewProvider.visible()) {
-                    viewProvider.setTextSize(size);
-                }
+                viewProvider.setTextSize(size);
             }
         }),
     );

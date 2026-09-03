@@ -34,6 +34,10 @@ driftwood teepee, a stone ring, rising embers, and drifting smoke.
 | Smart Doorbell | Mounted on the palm. Motion detected: crab. Motion detected: crab (again). Worth every penny. |
 | Targeted Advertising | A plane tows a banner past the island: `ESCAPE TO PARADISE — BOOK NOW!` |
 | Asking the AI | "Great question! Step 1: book a ferry." The half-built raft declines to comment. |
+| Prove You Are Not a Robot | A CAPTCHA asks him to select all squares with boats. There are no boats. He ticks them anyway. A real ship sails past behind him, unseen. Verification failed. |
+| Daily Standup | Camera on, four tiles, one colleague who never enables video. "Any blockers?" "One. I am on an island." "Let's take that offline." |
+| Hey Coco | A smart speaker washed up and still has power. "Call the coast guard." "Playing 'Help' by The Beatles." Now playing on all 1 devices. |
+| Printer Says No | An inkjet made it ashore in better shape than the raft. It will print one S.O.S. just as soon as he replaces the cyan cartridge. It's a black-and-white document. Then: paper jam, tray 2. There is no tray 2. |
 
 The island follows your clock through a full day: golden sunrise, bright
 afternoon, orange-and-purple sunset, and a proper night — crescent moon with
@@ -45,12 +49,13 @@ spotlight. Scene selection is time-aware — stargazing, doomscrolling, and
 sleeping at night; jogging and selfies by day.
 
 Plus holiday easter eggs (Halloween, Christmas, St. Patrick's, New Year's Eve)
-and two graphics modes: **classic** (1992 VGA pixel look) and **modern**
-(gradients and effects).
+and two graphics modes: **modern** (gradients and effects, the default) and
+**classic** (1992 VGA pixel look).
 
 ## Commands (⇧⌘P)
 
-- `Castaway: Start Island Session` — open the island in an editor panel
+- `Castaway: Start Island Session` — open the island where you keep it (the
+  Explorer sidebar by default; an editor panel if `position` says so)
 - `Castaway: Next Scene` / `Castaway: Choose Scene...`
 - `Castaway: Order a Package (Drone Delivery)` — same-decade shipping
 - `Castaway: Check the Phone` — a random phone scene
@@ -59,8 +64,8 @@ and two graphics modes: **classic** (1992 VGA pixel look) and **modern**
 
 ## Settings
 
-- `vscode-castaway.graphicsMode` — `classic` (default) or `modern`
-- `vscode-castaway.position` — `panel` (default) or `explorer` (sidebar view)
+- `vscode-castaway.graphicsMode` — `modern` (default) or `classic`
+- `vscode-castaway.position` — `explorer` (default, sidebar view) or `panel`
 - `vscode-castaway.textSize` — `small`, `medium` (default), `large`, or
   `x-large`; bump it up if speech bubbles are hard to read in the sidebar
 

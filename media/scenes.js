@@ -9,6 +9,9 @@ class SceneManager {
         this.currentSceneKey = null;
         this.frame = 0;
         this.sceneStartTime = Date.now();
+        // Dialogue bookkeeping for sayOnce() — see below.
+        this._sayLine = null;
+        this._sayStart = 0;
 
         const groundY = () => this.renderer.groundY();
 
@@ -175,7 +178,9 @@ class SceneManager {
                 },
                 renderFar: (state) => {
                     if (state.shipVisible && state.shipX < this.renderer.width + 100) {
-                        this.drawShip(state.shipX, this.renderer.height * 0.55);
+                        // Sits on the waterline (0.6) — above that it floats
+                        // in the sky.
+                        this.drawShip(state.shipX, this.renderer.height * 0.6 - 4);
                     }
                 },
                 render: (state) => {
@@ -311,7 +316,12 @@ class SceneManager {
                     johnnyX: 560,
                     johnnyY: groundY(),
                     direction: 1,
-                    bars: 0
+                    bars: 0,
+                    // Rotated rather than repeated, so the stretches between
+                    // hopeful flickers never say the same thing twice.
+                    quips: ['No service. Shocking.',
+                        'Zero bars. Consistent, at least.',
+                        'Maybe if I stand HERE.']
                 }),
                 update: (state) => {
                     state.johnnyX += state.direction * 0.7;
@@ -334,13 +344,20 @@ class SceneManager {
                         state.johnnyX, state.johnnyY, state.direction);
                     this.renderer.drawPhone(hand.x, hand.y - 8, { lit: true, angle: -0.2 });
                     this.renderer.drawSignalBars(hand.x + 14, hand.y - 18, state.bars);
-                    // The one-bar excitement lingers a moment after the bar dies
-                    if (state.lastBarFrame && this.frame - state.lastBarFrame < 130) {
+                    // The one-bar excitement interrupts, and lingers a moment
+                    // after the bar dies. The quip script keeps running
+                    // underneath, so he resumes on a new line, not the old
+                    // one. Its 5000ms slot is phased against the bar cycle
+                    // (excited for ~2.2s out of every 5s) so an interruption
+                    // never leaves a quip flashing up for a few frames.
+                    const excited = state.lastBarFrame &&
+                        this.frame - state.lastBarFrame < 130;
+                    const line = excited
+                        ? this.sayOnce('ONE BAR?! Don\'t move!', 2200)
+                        : this.scriptedLine(state.quips, { hold: 2800, gap: 2200 });
+                    if (line) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 10, state.johnnyY - 115, 'ONE BAR?! Don\'t move!');
-                    } else if (this.frame % 260 < 190) {
-                        this.renderer.drawSpeechBubble(
-                            state.johnnyX - 10, state.johnnyY - 115, 'No service. Shocking.');
+                            state.johnnyX - 10, state.johnnyY - 115, line);
                     }
                 }
             },
@@ -407,11 +424,12 @@ class SceneManager {
                     this.renderer.drawPhone(state.johnnyX + 14, state.johnnyY - 26, {
                         lit: true, angle: -0.5
                     });
-                    const idx = Math.floor((Date.now() - this.sceneStartTime) / 3200) %
-                        state.captions.length;
-                    if (this.frame % 190 < 160) {
+                    // 5 lines x 2700ms fits inside the 14s scene.
+                    const caption = this.scriptedLine(state.captions,
+                        { hold: 2200, gap: 500 });
+                    if (caption) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX + 5, state.johnnyY - 90, state.captions[idx]);
+                            state.johnnyX + 5, state.johnnyY - 90, caption);
                     }
                 }
             },
@@ -457,9 +475,10 @@ class SceneManager {
                     // buffer dots floating above the phone in narrow panels.
                     this.renderer.drawSpeechBubble(state.boxX + 25, gy - 70, status, { tailDx: 5 });
 
-                    if (t >= 9000 && this.frame % 200 < 160) {
+                    const cry = this.sayOnce(t >= 9000 ? 'Mom? MOM?' : null);
+                    if (cry) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 15, state.johnnyY - 125, 'Mom? MOM?');
+                            state.johnnyX - 15, state.johnnyY - 125, cry);
                     }
                 }
             },
@@ -491,13 +510,14 @@ class SceneManager {
                     // Iconic float above the laptop: readable at any size,
                     // and up permanently — unlike the cycling bubble.
                     this.renderer.drawDownloadStatus(605, gy + 2, progress, this.frame);
-                    const idx = Math.floor((Date.now() - this.sceneStartTime) / 3600) %
-                        state.captions.length;
-                    if (this.frame % 260 < 210) {
+                    // 3 lines x 5000ms fits inside the 16s scene.
+                    const caption = this.scriptedLine(state.captions,
+                        { hold: 4200, gap: 800 });
+                    if (caption) {
                         // High enough that the bubble clears the download
                         // float even at sidebar-view bubble sizes.
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 10, state.johnnyY - 105, state.captions[idx]);
+                            state.johnnyX - 10, state.johnnyY - 105, caption);
                     }
                 }
             },
@@ -528,16 +548,18 @@ class SceneManager {
                     this.renderer.drawJohnny(
                         state.johnnyX, state.johnnyY, waving ? 'armUp' : 'standing', this.frame);
 
+                    let line;
                     if (state.jetskiX > 300) {
-                        this.renderer.drawSpeechBubble(
-                            state.johnnyX - 20, state.johnnyY - 115, 'HEY! OVER HERE!');
+                        line = 'HEY! OVER HERE!';
                     } else if (state.jetskiX > -100) {
+                        line = '...wrong island.';
+                    } else {
+                        line = 'Delivery fee here is $400 anyway.';
+                    }
+                    const said = this.sayOnce(line, 3500);
+                    if (said) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 20, state.johnnyY - 115, '...wrong island.');
-                    } else if (this.frame % 200 < 160) {
-                        this.renderer.drawSpeechBubble(
-                            state.johnnyX - 20, state.johnnyY - 115,
-                            'Delivery fee here is $400 anyway.');
+                            state.johnnyX - 20, state.johnnyY - 115, said);
                     }
                 }
             },
@@ -554,7 +576,10 @@ class SceneManager {
                     roombaDepth: 10,
                     vx: 1.6,
                     mode: 'cruise',
-                    modeTimer: 90
+                    modeTimer: 90,
+                    lines: ['It came in one of the boxes.',
+                        'It only ever does that one strip.',
+                        'The sand gets tidied. Eventually.']
                 }),
                 update: (state) => {
                     // Real roomba logic: drive straight, hit something (or
@@ -588,10 +613,12 @@ class SceneManager {
                     this.renderer.drawRoomba(
                         state.roombaX, groundY() + state.roombaDepth, this.frame,
                         { dir: state.vx > 0 ? 1 : -1, spinning: state.mode === 'spin' });
-                    if (this.frame % 300 < 220) {
+                    // 3 lines x 4600ms fits inside the 14s scene.
+                    const line = this.scriptedLine(state.lines,
+                        { hold: 3600, gap: 1000 });
+                    if (line) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 10, state.johnnyY - 115,
-                            'It came in one of the boxes.');
+                            state.johnnyX - 10, state.johnnyY - 115, line);
                     }
                 }
             },
@@ -604,17 +631,19 @@ class SceneManager {
                 init: () => ({
                     johnnyX: 590,
                     johnnyY: groundY(),
-                    lines: ['So... how was your day?', ' ',
-                        'Mine too.', ' ', 'You always get me, Wilson.']
+                    // The pauses are Wilson's half of the conversation; the
+                    // gap between lines supplies them.
+                    lines: ['So... how was your day?', 'Mine too.',
+                        'You always get me, Wilson.']
                 }),
                 update: (state) => state,
                 render: (state) => {
                     this.renderer.drawJohnny(state.johnnyX, state.johnnyY, 'sitting', this.frame);
                     this.renderer.drawWilson(700, groundY() + 8);
-                    const idx = Math.floor((Date.now() - this.sceneStartTime) / 3400) %
-                        state.lines.length;
-                    const line = state.lines[idx];
-                    if (line.trim()) {
+                    // 3 lines x 4200ms fits inside the 13s scene.
+                    const line = this.scriptedLine(state.lines,
+                        { hold: 3000, gap: 1200 });
+                    if (line) {
                         this.renderer.drawSpeechBubble(
                             state.johnnyX + 10, state.johnnyY - 90, line);
                     }
@@ -712,9 +741,10 @@ class SceneManager {
                     } else {
                         line = "It's been 8 years. Just let me in.";
                     }
-                    if (this.frame % 240 < 200) {
+                    const said = this.sayOnce(line, 3500);
+                    if (said) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 10, state.johnnyY - 115, line);
+                            state.johnnyX - 10, state.johnnyY - 115, said);
                     }
                 }
             },
@@ -779,11 +809,14 @@ class SceneManager {
                     if (t < 1400) {
                         this.renderer.drawSpeechBubble(
                             state.johnnyX - 15, state.johnnyY - 115, 'Outgoing mail!');
-                    } else if (t > 4500 && this.frame % 220 < 180) {
-                        const idx = Math.floor((t - 4500) / 3200) %
-                            state.statuses.length;
-                        this.renderer.drawSpeechBubble(
-                            state.johnnyX + 5, state.johnnyY - 90, state.statuses[idx]);
+                    } else {
+                        // 4 lines x 3300ms from 4.5s fits inside the 18s scene.
+                        const status = this.scriptedLine(state.statuses,
+                            { start: 4500, hold: 2700, gap: 600 });
+                        if (status) {
+                            this.renderer.drawSpeechBubble(
+                                state.johnnyX + 5, state.johnnyY - 90, status);
+                        }
                     }
                 }
             },
@@ -839,9 +872,10 @@ class SceneManager {
                     } else {
                         line = 'Worth every penny.';
                     }
-                    if (line && this.frame % 200 < 170) {
+                    const said = this.sayOnce(line);
+                    if (said) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 5, gy - 115, line);
+                            state.johnnyX - 5, gy - 115, said);
                     }
                 }
             },
@@ -876,9 +910,10 @@ class SceneManager {
                     } else if (state.planeX <= 250) {
                         line = 'I want to meet their ad team.';
                     }
-                    if (line && this.frame % 220 < 190) {
+                    const said = this.sayOnce(line, 3500);
+                    if (said) {
                         this.renderer.drawSpeechBubble(
-                            state.johnnyX - 15, state.johnnyY - 115, line);
+                            state.johnnyX - 15, state.johnnyY - 115, said);
                     }
                 }
             },
@@ -906,23 +941,197 @@ class SceneManager {
                         this.renderer.drawBufferDots(610, gy - 52, this.frame);
                     }
 
-                    const beats = [
+                    const beat = this.currentBeat([
                         [0, 2600, 'johnny', 'How do I get off a desert island?'],
                         [3800, 7200, 'ai', 'Great question! Step 1: book a ferry.'],
                         [7200, 9200, 'johnny', 'There is no ferry.'],
                         [10600, 14200, 'ai', "You're right! Try building a raft."],
                         [14200, 16000, 'johnny', 'Day 2,947 of trying that.']
                         // ...then he closes the laptop. Enough internet today.
-                    ];
-                    for (const [a, b, who, text] of beats) {
-                        if (t >= a && t < b) {
-                            if (who === 'johnny') {
-                                this.renderer.drawSpeechBubble(
-                                    state.johnnyX - 10, gy - 105, text);
-                            } else {
-                                this.renderer.drawSpeechBubble(
-                                    620, gy - 70, text, { tailDx: 5 });
-                            }
+                    ]);
+                    if (beat) {
+                        if (beat[2] === 'johnny') {
+                            this.renderer.drawSpeechBubble(
+                                state.johnnyX - 10, gy - 105, beat[3]);
+                        } else {
+                            this.renderer.drawSpeechBubble(
+                                620, gy - 70, beat[3], { tailDx: 5 });
+                        }
+                    }
+                }
+            },
+
+            captcha: {
+                name: 'Prove You Are Not a Robot',
+                duration: 16000,
+                weight: 10,
+                nightWeight: 9,
+                init: () => ({ johnnyX: 480, johnnyY: groundY() }),
+                update: (state) => state,
+                renderFar: () => {
+                    // A real, actual ship, timed off the same clock as the
+                    // dialogue so it is out on the water behind him for the
+                    // whole scene, well clear of where he is sitting. He will
+                    // not look up.
+                    const t = Date.now() - this.sceneStartTime;
+                    this.drawShip(760 + (t / 16000) * 340,
+                        this.renderer.height * 0.6 - 4);
+                },
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY, 'sitting', this.frame);
+                    this.renderer.drawPhone(state.johnnyX + 14, gy - 26, {
+                        lit: true, angle: -0.5
+                    });
+
+                    // He ticks them off one at a time, with great care.
+                    const failed = t >= 11000;
+                    const ticked = failed
+                        ? 0
+                        : Math.max(0, Math.min(9, Math.floor((t - 3400) / 850)));
+                    // Offset right of the phone so the bubble above Johnny has
+                    // somewhere to go.
+                    this.renderer.drawCaptchaGrid(
+                        state.johnnyX + 58, gy - 26, this.frame,
+                        { ticked, failed }, 30);
+
+                    const beat = this.currentBeat([
+                        [0, 3200, 'phone', 'Select all squares with boats.'],
+                        [3600, 7000, 'johnny', 'There are... no boats.'],
+                        [7400, 10600, 'johnny', "I'm tapping them anyway."],
+                        [11000, 14200, 'phone', 'Verification failed. Try again.'],
+                        [14600, 16000, 'johnny', 'Prove I am not a robot. Sure.']
+                    ]);
+                    if (beat) {
+                        this.renderer.drawSpeechBubble(
+                            state.johnnyX - 40, gy - 112, beat[3]);
+                    }
+                }
+            },
+
+            standup: {
+                name: 'Daily Standup',
+                duration: 18000,
+                weight: 10,
+                nightWeight: 4,
+                init: () => ({ johnnyX: 545, johnnyY: groundY() }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+
+                    this.renderer.drawLaptop(625, gy + 2, {});
+                    this.renderer.drawCallTiles(625, gy + 2, this.frame);
+
+                    // A small, professional wave at people who cannot see him
+                    const waving = t > 400 && t < 2600 &&
+                        Math.floor(this.frame / 30) % 2 === 0;
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY,
+                        waving ? 'armUp' : 'sitting', this.frame);
+
+                    const beat = this.currentBeat([
+                        [0, 3000, 'johnny', 'Morning. Yes — I can hear you.'],
+                        [3400, 6400, 'call', 'Any blockers?'],
+                        [6800, 9800, 'johnny', 'One. I am on an island.'],
+                        [10200, 13200, 'call', "Let's take that offline."],
+                        [13600, 16600, 'johnny', 'Same update as yesterday, then.']
+                    ]);
+                    // Both bubbles clear the floating call tiles; only one is
+                    // ever up at a time.
+                    if (beat) {
+                        if (beat[2] === 'johnny') {
+                            this.renderer.drawSpeechBubble(
+                                state.johnnyX - 20, gy - 112, beat[3]);
+                        } else {
+                            this.renderer.drawSpeechBubble(
+                                648, gy - 96, beat[3], { tailDx: 5 });
+                        }
+                    }
+                }
+            },
+
+            voiceAssistant: {
+                name: 'Hey Coco',
+                duration: 15000,
+                weight: 10,
+                nightWeight: 9,
+                init: () => ({ johnnyX: 545, johnnyY: groundY() }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+
+                    const listening = t < 3200 || (t > 7400 && t < 9800);
+                    this.renderer.drawSmartSpeaker(615, gy + 6, this.frame, {
+                        listening,
+                        playing: t > 3600
+                    });
+
+                    // Arm up while he is addressing the cylinder
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY,
+                        listening ? 'armUp' : 'standing', this.frame,
+                        { dir: 1 });
+
+                    const beat = this.currentBeat([
+                        [0, 3200, 'johnny', 'Hey Coco — call the coast guard.'],
+                        [3600, 7000, 'coco', 'Playing "Help" by The Beatles.'],
+                        [7400, 9800, 'johnny', 'No. The COAST GUARD.'],
+                        [10200, 13400, 'coco', 'Now playing on all 1 devices.'],
+                        [13800, 15000, 'johnny', '...leave it on.']
+                    ]);
+                    if (beat) {
+                        if (beat[2] === 'johnny') {
+                            this.renderer.drawSpeechBubble(
+                                state.johnnyX - 20, gy - 115, beat[3]);
+                        } else {
+                            // Clear of the music drifting up off the speaker
+                            this.renderer.drawSpeechBubble(
+                                640, gy - 104, beat[3], { tailDx: 5 });
+                        }
+                    }
+                }
+            },
+
+            printer: {
+                name: 'Printer Says No',
+                duration: 16000,
+                weight: 9,
+                nightWeight: 6,
+                init: () => ({ johnnyX: 550, johnnyY: groundY() }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+
+                    // The page gets a third of the way out and gives up
+                    const sheet = Math.max(0, Math.min(0.4, (t - 1000) / 6000));
+                    this.renderer.drawPrinter(618, gy + 6, this.frame, {
+                        sheet,
+                        error: t > 3400
+                    });
+                    this.renderer.drawJohnny(
+                        state.johnnyX, state.johnnyY,
+                        t > 7000 && t < 10000 ? 'armUp' : 'standing', this.frame);
+
+                    const beat = this.currentBeat([
+                        [0, 3000, 'johnny', 'Printing one S.O.S.'],
+                        [3400, 6600, 'printer', 'Replace CYAN cartridge.'],
+                        [7000, 10000, 'johnny', "It's black and white!"],
+                        [10400, 13400, 'printer', 'Paper jam. Tray 2.'],
+                        [13800, 16000, 'johnny', 'There is no tray 2.']
+                    ]);
+                    if (beat) {
+                        if (beat[2] === 'johnny') {
+                            this.renderer.drawSpeechBubble(
+                                state.johnnyX - 20, gy - 115, beat[3]);
+                        } else {
+                            this.renderer.drawSpeechBubble(
+                                632, gy - 70, beat[3], { tailDx: 5 });
                         }
                     }
                 }
@@ -942,6 +1151,71 @@ class SceneManager {
         this.sceneState = this.currentScene.init();
         this.sceneStartTime = Date.now();
         this.frame = 0;
+        this._sayLine = null;
+        this._sayStart = 0;
+    }
+
+    // ---- Dialogue -------------------------------------------------------
+    //
+    // Speech bubbles used to be gated on `this.frame % N < M`, a blink on the
+    // 60fps frame counter. Because the line being *shown* was chosen on the
+    // wall clock, the two never lined up: a blink would cut a line off
+    // partway through and the same line would come back after the gap, so
+    // the castaway appeared to repeat himself. Both helpers below own the
+    // blink themselves, which keeps the silent gap strictly between lines.
+
+    /**
+     * Show `line` once each time it changes: it holds for `hold` ms, then
+     * stays hidden until a different line comes along. For scenes that pick
+     * a line from state or elapsed-time thresholds, where the same line can
+     * stay current for many seconds. Returns null when nothing should show.
+     *
+     * Single-channel — a scene should not drive two bubbles through it.
+     */
+    sayOnce(line, hold = 3200) {
+        if (line !== this._sayLine) {
+            this._sayLine = line;
+            this._sayStart = Date.now();
+        }
+        if (!line) {
+            return null;
+        }
+        return Date.now() - this._sayStart < hold ? line : null;
+    }
+
+    /**
+     * Look up a scripted exchange between two speakers. Each entry is
+     * [startMs, endMs, who, text] and owns its own window, so a line is shown
+     * once and the silences are wherever the windows do not meet. Returns the
+     * active entry, or null when nobody is talking.
+     */
+    currentBeat(beats) {
+        const t = Date.now() - this.sceneStartTime;
+        for (const beat of beats) {
+            if (t >= beat[0] && t < beat[1]) {
+                return beat;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Walk `lines` once, in order: each is on screen for `hold` ms followed
+     * by `gap` ms of silence. Returns null once the script runs out, so a
+     * scene ends on silence rather than looping back to line one. Time the
+     * script to fit the scene — anything past the end is never seen.
+     */
+    scriptedLine(lines, { start = 0, hold = 2600, gap = 600 } = {}) {
+        const t = Date.now() - this.sceneStartTime - start;
+        if (t < 0) {
+            return null;
+        }
+        const slot = hold + gap;
+        const i = Math.floor(t / slot);
+        if (i >= lines.length) {
+            return null;
+        }
+        return t % slot < hold ? lines[i] : null;
     }
 
     // Scenes can carry a nightWeight so the island keeps a plausible

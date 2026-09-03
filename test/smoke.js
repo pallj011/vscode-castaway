@@ -150,6 +150,95 @@ for (const mode of ['classic', 'modern']) {
     }
 }
 
+// --- Dialogue: no scene may say the same line twice in a row --------------
+//
+// Speech bubbles blink off between lines. If the blink is driven by a clock
+// that does not match the one choosing the line, a line gets cut in half and
+// comes back after the gap, so the castaway appears to repeat himself. Walk
+// each scene at frame rate and assert that consecutive bubbles differ.
+{
+    const FPS = 60;
+    const canvas = makeCanvas();
+    const renderer = new Renderer(canvas);
+    renderer.setGraphicsMode('modern');
+    const manager = new SceneManager(renderer, new FakeCalendar('afternoon'));
+
+    let shown = [];
+    renderer.drawSpeechBubble = (x, y, text) => shown.push(String(text));
+
+    for (const sceneKey of Object.keys(manager.scenes)) {
+        const duration = manager.scenes[sceneKey].duration;
+        const originalNow = Date.now;
+        const start = originalNow();
+        Date.now = () => start;
+        manager.setScene(sceneKey);
+
+        let previous = null;
+        let lastNonEmpty = null;
+        const repeats = [];
+        for (let t = 0; t <= duration; t += 1000 / FPS) {
+            Date.now = () => start + t;
+            manager.frame++;
+            if (manager.currentScene.update) {
+                manager.sceneState = manager.currentScene.update(manager.sceneState);
+            }
+            shown = [];
+            manager.currentScene.render(manager.sceneState);
+            const current = shown.join(' | ');
+            if (current !== previous) {
+                // A line reappearing after a silent gap is the repeat we care
+                // about; text changing straight to something else is fine.
+                if (current !== '' && current === lastNonEmpty) {
+                    repeats.push(`${Math.round(t)}ms "${current}"`);
+                }
+                if (current !== '') {
+                    lastNonEmpty = current;
+                }
+                previous = current;
+            }
+        }
+        Date.now = originalNow;
+
+        if (repeats.length) {
+            failures++;
+            console.error(
+                `FAIL dialogue ${sceneKey}: repeats ${repeats.join(', ')}`);
+        } else {
+            console.log(`ok   dialogue ${sceneKey}`);
+        }
+    }
+}
+
+// --- The Choose Scene... picker must list exactly the scenes that exist ----
+//
+// src/extension.ts keeps its own copy of the scene ids. A scene missing from
+// it never appears in the picker; an id that no longer exists sets a scene
+// the webview does not have.
+{
+    const fs = require('fs');
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
+    const listed = [...source.matchAll(/\{ id: '([A-Za-z]+)'/g)].map((m) => m[1]);
+
+    const canvas = makeCanvas();
+    const manager = new SceneManager(new Renderer(canvas), new Calendar());
+    const actual = Object.keys(manager.scenes);
+
+    const missing = actual.filter((k) => !listed.includes(k));
+    const extra = listed.filter((k) => !actual.includes(k));
+    if (missing.length || extra.length) {
+        failures++;
+        if (missing.length) {
+            console.error(`FAIL picker: scenes missing from extension.ts: ${missing.join(', ')}`);
+        }
+        if (extra.length) {
+            console.error(`FAIL picker: extension.ts lists unknown scenes: ${extra.join(', ')}`);
+        }
+    } else {
+        console.log(`ok   picker lists all ${actual.length} scenes`);
+    }
+}
+
 // Calendar sanity
 {
     const cal = new Calendar();

@@ -92,8 +92,8 @@
                         "classic",
                         "modern"
                     ],
-                    "default": "classic",
-                    "description": "Classic (1992 VGA pixel look) or modern (gradients and effects) rendering."
+                    "default": "modern",
+                    "description": "Modern (gradients and effects, the default) or classic (1992 VGA pixel look) rendering."
                 },
                 "vscode-castaway.position": {
                     "type": "string",
@@ -101,8 +101,8 @@
                         "panel",
                         "explorer"
                     ],
-                    "default": "panel",
-                    "description": "Where the island lives: a dedicated editor panel or the Explorer sidebar."
+                    "default": "explorer",
+                    "description": "Where the island lives: the Explorer sidebar (the default) or a dedicated editor panel."
                 },
                 "vscode-castaway.textSize": {
                     "type": "string",

@@ -2089,6 +2089,260 @@ class Renderer {
         ctx.restore();
     }
 
+    // A voice-assistant speaker, half-buried in the sand where it washed up.
+    // Anchored at its base (x, y). listening: the ring brightens and breathes.
+    drawSmartSpeaker(x, y, frame, opts = {}) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        const h = 34;
+        const w = 20;
+
+        // Body — a mesh cylinder, sunk a little into the beach
+        ctx.fillStyle = '#4A4F55';
+        ctx.beginPath();
+        ctx.roundRect(-w / 2, -h, w, h, [3, 3, 5, 5]);
+        ctx.fill();
+        if (this.graphicsMode !== 'classic') {
+            const sheen = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+            sheen.addColorStop(0, 'rgba(255,255,255,0.18)');
+            sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+            sheen.addColorStop(1, 'rgba(0,0,0,0.22)');
+            ctx.fillStyle = sheen;
+            ctx.beginPath();
+            ctx.roundRect(-w / 2, -h, w, h, [3, 3, 5, 5]);
+            ctx.fill();
+        }
+        // Speaker mesh
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        for (let i = 0; i < 5; i++) {
+            ctx.fillRect(-w / 2 + 2, -h + 11 + i * 4.5, w - 4, 1.8);
+        }
+
+        // The ring on top — the only part that ever seems to be working
+        const pulse = opts.listening
+            ? 0.55 + Math.abs(Math.sin(frame * 0.09)) * 0.45
+            : 0.3;
+        if (this.graphicsMode !== 'classic') {
+            const glow = ctx.createRadialGradient(0, -h, 1, 0, -h, 16);
+            glow.addColorStop(0, `rgba(0, 191, 255, ${0.5 * pulse})`);
+            glow.addColorStop(1, 'rgba(0, 191, 255, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(0, -h, 16, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = `rgba(0, 191, 255, ${pulse})`;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.ellipse(0, -h, w / 2 - 1, 3.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Music, drifting off to nobody
+        if (opts.playing) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 1.2;
+            for (let i = 0; i < 3; i++) {
+                const t = ((frame * 1.1 + i * 30) % 90) / 90;
+                const nx = 13 + Math.sin(t * 5 + i * 2) * 6;
+                const ny = -h - 8 - t * 38;
+                ctx.globalAlpha = Math.min(1, (1 - t) * 1.4);
+                ctx.beginPath();
+                ctx.ellipse(nx, ny, 3.6, 2.8, -0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(nx + 3.3, ny + 0.8);
+                ctx.lineTo(nx + 3.3, ny - 9.5);
+                ctx.lineTo(nx + 8, ny - 7.4);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+    }
+
+    // An inkjet printer that made it ashore in better shape than the raft.
+    // Anchored at its base center (x, y). sheet: 0-1, how far the page is out.
+    drawPrinter(x, y, frame, opts = {}) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        const w = 40;
+        const h = 20;
+
+        // The page, emerging at the speed of bureaucracy
+        const out = opts.sheet || 0;
+        if (out > 0) {
+            ctx.fillStyle = '#F6F6F2';
+            ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+            ctx.lineWidth = 0.8;
+            const ph = 30 * out;
+            ctx.beginPath();
+            ctx.rect(-10, -h - ph, 20, ph);
+            ctx.fill();
+            ctx.stroke();
+            // A few streaky half-printed lines
+            ctx.fillStyle = 'rgba(60,60,60,0.5)';
+            for (let i = 0; i < 3 && ph > 5 + i * 4; i++) {
+                ctx.fillRect(-7, -h - ph + 4 + i * 4, 14 * (1 - i * 0.25), 1.2);
+            }
+        }
+
+        // Body
+        ctx.fillStyle = '#D8D8D4';
+        ctx.beginPath();
+        ctx.roundRect(-w / 2, -h, w, h, 3);
+        ctx.fill();
+        ctx.fillStyle = '#BFBFBA';
+        ctx.beginPath();
+        ctx.roundRect(-w / 2, -h, w, 6, [3, 3, 0, 0]);
+        ctx.fill();
+        // Output slot
+        ctx.fillStyle = '#3A3A3A';
+        ctx.fillRect(-10, -h - 1, 20, 2.4);
+        // Paper tray, jutting out the front
+        ctx.fillStyle = '#C9C9C4';
+        ctx.beginPath();
+        ctx.moveTo(-13, -4);
+        ctx.lineTo(13, -4);
+        ctx.lineTo(17, 1);
+        ctx.lineTo(-17, 1);
+        ctx.closePath();
+        ctx.fill();
+
+        // The angry light
+        const blink = frame % 50 < 28;
+        ctx.fillStyle = opts.error
+            ? (blink ? '#FF9500' : '#6B4A12')
+            : '#34C759';
+        ctx.beginPath();
+        ctx.arc(w / 2 - 5, -h + 3, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Floating CAPTCHA grid: 3x3 cells, some ticked, in the drawSignalBars
+    // idiom — shapes only, so it stays legible in a narrow sidebar.
+    // Anchored to the ground point (x, yBase), floating `lift` px above it.
+    drawCaptchaGrid(x, yBase, frame, opts = {}, lift = 52) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, yBase);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        const cell = 11;
+        const gap = 2;
+        const span = 3 * cell + 2 * gap;
+        const top = -lift - span;
+
+        // Panel behind the grid
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.roundRect(-span / 2 - 3, top - 3, span + 6, span + 6, 3);
+        ctx.fill();
+        ctx.stroke();
+
+        // Cells — one lights up at a time as he taps hopefully
+        const ticked = opts.ticked || 0;
+        for (let i = 0; i < 9; i++) {
+            const cx = -span / 2 + (i % 3) * (cell + gap);
+            const cy = top + Math.floor(i / 3) * (cell + gap);
+            ctx.fillStyle = i < ticked ? '#1C6FD4' : 'rgba(0,0,0,0.13)';
+            ctx.beginPath();
+            ctx.roundRect(cx, cy, cell, cell, 1.5);
+            ctx.fill();
+            if (i < ticked) {
+                // A tick, for a boat that is not there
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 1.6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(cx + 2.5, cy + cell / 2);
+                ctx.lineTo(cx + cell / 2 - 0.5, cy + cell - 3);
+                ctx.lineTo(cx + cell - 2.5, cy + 3);
+                ctx.stroke();
+            }
+        }
+
+        if (opts.failed) {
+            ctx.strokeStyle = '#FF3B30';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-span / 2 - 4, top - 4);
+            ctx.lineTo(span / 2 + 4, top + span + 4);
+            ctx.moveTo(span / 2 + 4, top - 4);
+            ctx.lineTo(-span / 2 - 4, top + span + 4);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // Floating video-call tiles for the standup: four participants, one
+    // speaking, one who never turns the camera on. Shapes only, same idiom.
+    drawCallTiles(x, yBase, frame, opts = {}, lift = 54) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, yBase);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        const tw = 15;
+        const th = 11;
+        const gap = 2.5;
+        const span = 2 * tw + gap;
+        const top = -lift - (2 * th + gap);
+        // Who is talking rotates, and it is never him
+        const speaking = Math.floor(frame / 90) % 4;
+
+        for (let i = 0; i < 4; i++) {
+            const cx = -span / 2 + (i % 2) * (tw + gap);
+            const cy = top + Math.floor(i / 2) * (th + gap);
+            const cameraOff = i === 3;
+
+            ctx.fillStyle = cameraOff ? '#2C2C2E' : '#5A6B7A';
+            ctx.beginPath();
+            ctx.roundRect(cx, cy, tw, th, 1.5);
+            ctx.fill();
+
+            if (cameraOff) {
+                // Initials, in the way of someone still in bed
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.fillRect(cx + tw / 2 - 3, cy + th / 2 - 0.7, 6, 1.4);
+            } else {
+                // A head-and-shoulders silhouette
+                ctx.fillStyle = 'rgba(255,255,255,0.75)';
+                ctx.beginPath();
+                ctx.arc(cx + tw / 2, cy + th * 0.38, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(cx + tw / 2, cy + th + 0.5, 4, 3.4, 0, Math.PI, 0);
+                ctx.fill();
+            }
+
+            if (i === speaking) {
+                ctx.strokeStyle = '#34C759';
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.roundRect(cx - 0.8, cy - 0.8, tw + 1.6, th + 1.6, 2);
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
+    }
+
     // Camera-flash overlay for selfies.
     drawFlash(alpha) {
         if (alpha <= 0) return;

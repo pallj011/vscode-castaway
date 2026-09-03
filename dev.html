@@ -39,7 +39,7 @@
     <script>
         // ?mode=modern&scene=droneDelivery&elapsed=6000&tod=night&text=large
         const params = new URLSearchParams(location.search);
-        castawayApp.start('islandCanvas', params.get('mode') || 'classic',
+        castawayApp.start('islandCanvas', params.get('mode') || 'modern',
             params.get('text') || 'medium');
         if (params.get('tod')) {
             castawayApp.engine.calendar.getTimeOfDay = () => params.get('tod');

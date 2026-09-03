@@ -142,6 +142,13 @@ const castawayApp = {
                     break;
             }
         });
+
+        // Tell the host we are listening. Commands fired while the sidebar
+        // view was still loading are held until this arrives. (Absent in the
+        // standalone dev.html harness.)
+        if (typeof acquireVsCodeApi === 'function') {
+            acquireVsCodeApi().postMessage({ command: 'ready' });
+        }
     }
 };
 

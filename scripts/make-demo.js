@@ -15,6 +15,8 @@ const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const DEV_HTML = path.join(__dirname, '..', 'dev.html');
 const OUT_GIF = path.join(__dirname, '..', 'docs', 'demo.gif');
 const FPS = 10;
+// Match the extension's default graphics mode.
+const MODE = 'modern';
 
 // Each segment: scene + time-of-day + how far into the scene to start,
 // and how long to record. Chosen for the money shots.
@@ -30,18 +32,35 @@ const SEGMENTS = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
-    const frameDir = fs.mkdtempSync(path.join(os.tmpdir(), 'castaway-frames-'));
-    const browser = await puppeteer.launch({
-        executablePath: CHROME,
-        headless: true,
-        args: ['--hide-scrollbars', '--force-device-scale-factor=1'],
-    });
-    const page = await browser.newPage();
-    await page.setViewport({ width: 700, height: 400, deviceScaleFactor: 1 });
+    // CASTAWAY_FRAME_DIR reuses a fixed directory (and skips the capture if it
+    // already has frames), so palette settings can be re-tuned without
+    // re-recording.
+    const keepDir = process.env.CASTAWAY_FRAME_DIR;
+    const frameDir = keepDir
+        ? (fs.mkdirSync(keepDir, { recursive: true }), keepDir)
+        : fs.mkdtempSync(path.join(os.tmpdir(), 'castaway-frames-'));
+    const existing = fs
+        .readdirSync(frameDir)
+        .filter((f) => f.endsWith('.png')).length;
+    let n = existing;
+    if (existing) {
+        console.log(`reusing ${existing} captured frames in ${frameDir}`);
+    }
 
-    let n = 0;
-    for (const seg of SEGMENTS) {
-        const url = `file://${DEV_HTML}?mode=classic&scene=${seg.scene}` +
+    const browser = existing
+        ? null
+        : await puppeteer.launch({
+              executablePath: CHROME,
+              headless: true,
+              args: ['--hide-scrollbars', '--force-device-scale-factor=1'],
+          });
+    const page = browser && (await browser.newPage());
+    if (page) {
+        await page.setViewport({ width: 700, height: 400, deviceScaleFactor: 1 });
+    }
+
+    for (const seg of existing ? [] : SEGMENTS) {
+        const url = `file://${DEV_HTML}?mode=${MODE}&scene=${seg.scene}` +
             `&tod=${seg.tod}&elapsed=${seg.elapsed}`;
         await page.goto(url);
         await page.addStyleTag({
@@ -66,7 +85,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         }
         console.log(`${seg.scene}: ${frames} frames`);
     }
-    await browser.close();
+    if (browser) {
+        await browser.close();
+    }
 
     fs.mkdirSync(path.dirname(OUT_GIF), { recursive: true });
     execFileSync('ffmpeg', [
@@ -76,7 +97,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
             '[s1][p]paletteuse=dither=bayer:bayer_scale=3',
         OUT_GIF,
     ], { stdio: 'pipe' });
-    fs.rmSync(frameDir, { recursive: true, force: true });
+    if (!keepDir) {
+        fs.rmSync(frameDir, { recursive: true, force: true });
+    }
 
     const kb = Math.round(fs.statSync(OUT_GIF).size / 1024);
     console.log(`wrote ${OUT_GIF} (${n} frames, ${kb} KB)`);
