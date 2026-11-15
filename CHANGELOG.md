@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.8 — 2026-11-15
+
+### Two new scenes
+
+- **Hula** — grass skirt, lei, a flower in his hair, and a smart speaker
+  playing "Hula Workout: Level 9". It's all in the hips. He has burned 4
+  calories. The crab side-steps along in time.
+- **Cruise Ship Party** — a three-act scene, the longest on the island. A
+  cruise ship anchors at sunset: he's saved! It's a three-hour shore
+  excursion. Six guests in loud shirts come ashore, light a bonfire and party
+  into the night; the delivery drone turns up with a disco ball; Wilson gets
+  a party hat. He passes out. *The next morning* the ship is a dot on the
+  horizon, the beach is covered in cups and streamers, and he is left holding
+  the bin bag. One-star review: "No Wi-Fi."
+- New props: a cruise ship with cabin lights and a string of party bulbs,
+  cruise passengers (dancing, drinking, taking photos), a mirror ball with
+  sweeping coloured beams, party litter, a bin bag, and a hula-dancing Johnny
+- A scene can now drive its own sky. The party runs sunset → night → morning
+  whatever the real clock says, with a fade and a title card over each jump.
+  Scene selection still follows your clock
+
 ## 0.1.7 — 2026-09-02
 
 ### Four new scenes
