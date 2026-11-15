@@ -38,6 +38,8 @@ driftwood teepee, a stone ring, rising embers, and drifting smoke.
 | Daily Standup | Camera on, four tiles, one colleague who never enables video. "Any blockers?" "One. I am on an island." "Let's take that offline." |
 | Hey Coco | A smart speaker washed up and still has power. "Call the coast guard." "Playing 'Help' by The Beatles." Now playing on all 1 devices. |
 | Printer Says No | An inkjet made it ashore in better shape than the raft. It will print one S.O.S. just as soon as he replaces the cyan cartridge. It's a black-and-white document. Then: paper jam, tray 2. There is no tray 2. |
+| Hula | Grass skirt, lei, flower in his hair, and a smart speaker playing "Hula Workout: Level 9". It's all in the hips. He has burned 4 calories. The crab side-steps along in time. |
+| Cruise Ship Party | A cruise ship anchors at sunset — he's saved! It's a three-hour shore excursion. The guests come ashore, light a bonfire and party into the night — the delivery drone even turns up with a disco ball — until he passes out. *The next morning*: the ship is a dot on the horizon, the beach is covered in cups and streamers, and he is left holding the bin bag. One-star review: "No Wi-Fi." |
 
 The island follows your clock through a full day: golden sunrise, bright
 afternoon, orange-and-purple sunset, and a proper night — crescent moon with

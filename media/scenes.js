@@ -1135,7 +1135,352 @@ class SceneManager {
                         }
                     }
                 }
-            }
+            },
+
+            // ----------------------------------------------------------
+            // Island entertainment
+            // ----------------------------------------------------------
+
+            hula: {
+                name: 'Hula',
+                duration: 17000,
+                weight: 11,
+                nightWeight: 6,
+                init: () => ({ johnnyX: 545, johnnyY: groundY() }),
+                update: (state) => state,
+                render: (state) => {
+                    const t = Date.now() - this.sceneStartTime;
+                    const gy = groundY();
+                    const dancing = t > 3400;
+
+                    this.renderer.drawSmartSpeaker(615, gy + 6, this.frame, {
+                        listening: t < 3200,
+                        playing: dancing
+                    });
+
+                    // The crab side-steps in time with his hips. It was born
+                    // for this.
+                    const crabX = 715 + (dancing ? Math.sin(this.frame * 0.1) * 16 : 0);
+                    this.renderer.drawCrab(crabX, gy + 34, dancing ? this.frame : 0);
+
+                    // He is already in the skirt when he asks for the music.
+                    if (dancing) {
+                        this.renderer.drawJohnnyHula(
+                            state.johnnyX, state.johnnyY, this.frame);
+                    } else {
+                        this.renderer.drawJohnnyHula(
+                            state.johnnyX, state.johnnyY, 0);
+                    }
+
+                    const beat = this.currentBeat([
+                        [0, 3000, 'johnny', 'Hey Coco — play something Hawaiian.'],
+                        [3400, 6400, 'coco', 'Playing "Hula Workout: Level 9".'],
+                        [6800, 9800, 'johnny', "It's all in the hips."],
+                        [10200, 13200, 'coco', 'You have burned 4 calories.'],
+                        [13600, 16400, 'johnny', 'The crab gets it.']
+                    ]);
+                    if (beat) {
+                        if (beat[2] === 'johnny') {
+                            this.renderer.drawSpeechBubble(
+                                state.johnnyX - 20, gy - 118, beat[3]);
+                        } else {
+                            this.renderer.drawSpeechBubble(
+                                640, gy - 104, beat[3], { tailDx: 5 });
+                        }
+                    }
+                }
+            },
+
+            // A three-act play: a ship arrives at sunset, the party runs
+            // into the night, and morning finds him alone with the cleanup.
+            // The scene drives its own sky through timeOfDay(), whatever the
+            // real clock says, and hides each jump behind a fade.
+            cruiseParty: (() => {
+                const DOCKED = 6500;    // ship stops behind the island
+                const ASHORE = 7000;    // guests start walking up the beach
+                const DUSK = 13500;     // evening → night
+                const PASSOUT = 27500;  // he goes down
+                const LEAVE = 28500;    // guests head back to the ship
+                const CUT = 32000;      // night → the next morning
+                const WAKE = 35500;
+                const STAND = 37500;
+                const CLEAN = 39500;
+                const END = 46000;
+                const SHORE_X = 455;    // where the gangway meets the sand
+                const SHIP_X = 440;
+                const elapsed = () => Date.now() - this.sceneStartTime;
+
+                // Where guest i is at time t, or null if still/back aboard.
+                const guestAt = (g, i, n, t) => {
+                    const inStart = ASHORE + (n - 1 - i) * 350;
+                    const inEnd = inStart + (g.x - SHORE_X) / 0.09;
+                    const outStart = LEAVE + i * 200;
+                    if (t < inStart || t >= CUT) {
+                        return null;
+                    }
+                    if (t < inEnd) {
+                        return { x: SHORE_X + (t - inStart) * 0.09, pose: 'walk', dir: 1 };
+                    }
+                    if (t < outStart) {
+                        return { x: g.x, pose: g.pose, dir: g.dir || 1 };
+                    }
+                    const x = g.x - (t - outStart) * 0.14;
+                    return x > SHORE_X ? { x, pose: 'walk', dir: -1 } : null;
+                };
+
+                const shipX = (t) => {
+                    if (t >= DOCKED) {
+                        return SHIP_X;
+                    }
+                    const p = 1 - t / DOCKED;
+                    return SHIP_X - 620 * p * p;
+                };
+
+                return {
+                    name: 'Cruise Ship Party',
+                    duration: END,
+                    weight: 6,
+                    nightWeight: 6,
+                    timeOfDay: () => {
+                        const t = elapsed();
+                        return t < DUSK ? 'evening' : t < CUT ? 'night' : 'morning';
+                    },
+                    init: () => ({
+                        johnnyX: 700,
+                        johnnyY: groundY(),
+                        // Left to right; d is how far down the beach they stand.
+                        guests: [
+                            { x: 492, d: 14, pose: 'dance', look: {
+                                shirt: '#1FA3A3', print: '#FFE066', hat: 'sun',
+                                skin: '#F1C7A3', hair: '#C9A24B' } },
+                            { x: 532, d: 32, pose: 'drink', look: {
+                                shirt: '#FF7A3D', print: '#FFFFFF', shades: true,
+                                skin: '#B97A4E', hair: '#1E1610' } },
+                            { x: 600, d: 3, pose: 'dance', look: {
+                                shirt: '#8E5BD0', print: '#FFD23F', hat: 'party',
+                                hair: '#7A3B1E', longHair: true } },
+                            { x: 660, d: 28, pose: 'photo', look: {
+                                shirt: '#3FA34D', print: '#FF6FA5', hat: 'cap',
+                                skin: '#8A5A3A', hair: '#1E1610' } },
+                            { x: 784, d: 22, pose: 'dance', look: {
+                                shirt: '#E84A7A', print: '#FFFFFF', lei: true,
+                                skin: '#F1C7A3', hair: '#2A1A0E', longHair: true } },
+                            { x: 815, d: 6, pose: 'drink', dir: -1, look: {
+                                shirt: '#F2C230', print: '#D7263D', shades: true,
+                                hat: 'sun', skin: '#D9A066' } }
+                        ],
+                        // Dropped one at a time through the night.
+                        litter: [
+                            { x: 690, d: 30, kind: 'cup' },
+                            { x: 540, d: 12, kind: 'can' },
+                            { x: 812, d: 16, kind: 'streamer' },
+                            { x: 612, d: 36, kind: 'bottle' },
+                            { x: 488, d: 26, kind: 'cup' },
+                            { x: 672, d: 14, kind: 'streamer' },
+                            { x: 730, d: 38, kind: 'can' },
+                            { x: 590, d: 20, kind: 'cup' },
+                            { x: 655, d: 42, kind: 'lei' },
+                            { x: 698, d: 48, kind: 'streamer' },
+                            { x: 790, d: 30, kind: 'cup' },
+                            { x: 505, d: 48, kind: 'float' }
+                        ]
+                    }),
+                    update: (state) => state,
+                    renderFar: () => {
+                        const t = elapsed();
+                        if (t < CUT) {
+                            this.renderer.drawCruiseShip(
+                                shipX(t), groundY() + 4, this.frame, {
+                                    lit: t >= DUSK,
+                                    party: t >= ASHORE,
+                                    smoke: t < DOCKED
+                                });
+                        } else {
+                            // Already most of the way to the next port
+                            this.renderer.drawCruiseShip(
+                                790 + ((t - CUT) / (END - CUT)) * 170,
+                                this.renderer.height * 0.6 + 1, this.frame,
+                                { scale: 0.2, smoke: true });
+                        }
+                    },
+                    render: (state) => {
+                        const t = elapsed();
+                        const gy = groundY();
+                        const r = this.renderer;
+                        const jx = state.johnnyX;
+                        const morning = t >= CUT;
+                        const partying = t >= DUSK && t < PASSOUT;
+
+                        // He works left across the beach, bag in hand.
+                        const cleanX = t >= CLEAN ? jx - (t - CLEAN) * 0.032 : jx;
+                        let bagged = 0;
+                        state.litter.forEach((item, i) => {
+                            if (t < DUSK + 1200 + i * 1050) {
+                                return; // not dropped yet
+                            }
+                            if (t >= CLEAN && item.x <= jx && cleanX < item.x + 10) {
+                                bagged++;
+                                return;
+                            }
+                            r.drawLitter(item.x, gy + item.d, item.kind, i);
+                        });
+
+                        // The delivery drone has the night off. It flies
+                        // in with a mirror ball, hovers over the dance
+                        // floor swaying in time, and leaves with the ship.
+                        const DRONE_IN = DUSK + 800;
+                        let drone = null;
+                        if (t >= DRONE_IN && t < CUT) {
+                            const k = Math.min(1, (t - DRONE_IN) / 2200);
+                            const arrive = 1 - (1 - k) * (1 - k);
+                            const out = Math.max(0, t - LEAVE) / 1000;
+                            drone = {
+                                x: 1260 - 420 * arrive + out * out * 22 +
+                                    (k >= 1 && !out ? Math.sin(this.frame * 0.06) * 14 : 0),
+                                y: 150 - out * out * 9
+                            };
+                            // drawDrone bobs by this much; the ball must too.
+                            drone.ballY = drone.y + Math.sin(this.frame * 0.12) * 3 + 39;
+                            if (k >= 1 && !out) {
+                                r.drawDiscoLights(drone.x, drone.ballY,
+                                    this.frame, 650, gy + 30);
+                            }
+                        }
+
+                        // Everyone on the sand, back to front.
+                        const actors = [];
+                        const n = state.guests.length;
+                        const where = state.guests.map((g, i) => guestAt(g, i, n, t));
+                        state.guests.forEach((g, i) => {
+                            const at = where[i];
+                            if (!at) {
+                                return;
+                            }
+                            actors.push({ d: g.d, draw: () => r.drawGuest(
+                                at.x, gy + g.d, this.frame, {
+                                    look: g.look,
+                                    pose: at.pose,
+                                    dir: at.dir,
+                                    phase: i * 1.7,
+                                    alpha: Math.min(1, (at.x - SHORE_X) / 25)
+                                }) });
+                        });
+
+                        // Wilson gets a hat out of it, at least.
+                        actors.push({ d: 10, draw: () => {
+                            r.drawWilson(752, gy + 10);
+                            if (t >= DUSK + 2500) {
+                                const ps = r.propScale();
+                                r.drawPartyHat(752, gy + 10 - 23 * ps, ps);
+                            }
+                        } });
+
+                        // Bonfire for the party; by morning, embers.
+                        if (t >= DUSK - 1500) {
+                            const lit = morning
+                                ? 0.14
+                                : Math.min(1, (t - (DUSK - 1500)) / 2500);
+                            actors.push({ d: 30, draw: () =>
+                                this.drawFire(572, gy + 26, lit) });
+                        }
+
+                        actors.push({ d: 1, draw: () => {
+                            if (t < DUSK) {
+                                // Waving the ship in, then just staring
+                                const waving = t < ASHORE &&
+                                    Math.floor(this.frame / 20) % 2 === 0;
+                                r.drawJohnny(jx, gy, waving ? 'armUp' : 'standing',
+                                    this.frame, { dir: -1 });
+                            } else if (partying) {
+                                r.drawJohnnyHula(jx, gy, this.frame, {
+                                    skirt: false,
+                                    tipsy: Math.max(0, (t - 20500) / (PASSOUT - 20500))
+                                });
+                            } else if (t < WAKE) {
+                                r.drawJohnnyLying(jx, gy + 6);
+                                if (t > PASSOUT + 700 && (t < CUT - 1500 || t > CUT + 1500) &&
+                                        Math.floor(this.frame / 30) % 2 === 0) {
+                                    const ctx = r.ctx;
+                                    ctx.save();
+                                    ctx.fillStyle = morning ? '#000' : 'rgba(255, 255, 255, 0.9)';
+                                    ctx.font = `${20 * r.textScale}px Arial`;
+                                    ctx.fillText('Z', jx, gy - 24);
+                                    ctx.fillText('Z', jx + 10, gy - 39);
+                                    ctx.restore();
+                                }
+                            } else if (t < STAND) {
+                                r.drawJohnny(jx, gy, 'sitting', this.frame);
+                            } else if (t < CLEAN) {
+                                r.drawJohnny(jx, gy, 'standing', this.frame);
+                            } else {
+                                r.drawTrashBag(cleanX + 15, gy + 3,
+                                    Math.min(1, bagged / 9));
+                                r.drawJohnny(cleanX, gy, 'running',
+                                    this.frame * 0.45, { dir: -1 });
+                            }
+                        } });
+
+                        actors.sort((a, b) => a.d - b.d);
+                        for (const actor of actors) {
+                            actor.draw();
+                        }
+
+                        if (drone) {
+                            r.drawDiscoBall(drone.x, drone.ballY, this.frame, 22);
+                            r.drawDrone(drone.x, drone.y, this.frame);
+                        }
+
+                        if (partying) {
+                            r.drawMusicNotes(520, gy - 78, this.frame);
+                            r.drawMusicNotes(770, gy - 70, this.frame + 40);
+                        }
+
+                        // Guest 3 gets the shot for the group chat.
+                        r.drawFlash(Math.max(0, 0.7 - Math.abs(t - 18700) / 350));
+
+                        // [start, end, who, text] — who is 'johnny', 'ship',
+                        // or the index of the guest talking.
+                        const beat = this.currentBeat([
+                            [300, 3300, 'johnny', "A SHIP! I'm saved! I'M SAVED!"],
+                            [3700, 6300, 'ship', 'HOOOONK.'],
+                            [7400, 10300, 5, 'Shore excursion! Three hours!'],
+                            [10700, 13100, 'johnny', 'You came to rescue me!'],
+                            [14300, 17100, 1, 'So authentic. Is he included?'],
+                            [17500, 20300, 'johnny', 'Even the drone showed up!'],
+                            [20700, 23500, 2, 'One more for the island guy!'],
+                            [23900, 27100, 'johnny', 'Besht... reshcue... ever.'],
+                            [28300, 30600, 'ship', 'All aboard! Last call!'],
+                            [35700, 37300, 'johnny', '...guys?'],
+                            [37700, 40300, 'johnny', 'They left. Without me. Again.'],
+                            [40700, 43100, 'johnny', 'And nobody recycles.'],
+                            [43500, END, 'johnny', 'One-star review: "No Wi-Fi."']
+                        ]);
+                        if (beat) {
+                            if (beat[2] === 'johnny') {
+                                if (t >= CLEAN) {
+                                    r.drawSpeechBubble(cleanX - 10, gy - 112, beat[3]);
+                                } else if (t >= WAKE && t < STAND) {
+                                    r.drawSpeechBubble(jx + 10, gy - 90, beat[3]);
+                                } else {
+                                    r.drawSpeechBubble(jx - 15, gy - 118, beat[3]);
+                                }
+                            } else if (beat[2] === 'ship') {
+                                r.drawSpeechBubble(
+                                    shipX(t) + 40, gy - 122, beat[3], { tailDx: 5 });
+                            } else if (where[beat[2]]) {
+                                r.drawSpeechBubble(where[beat[2]].x,
+                                    gy + state.guests[beat[2]].d - 108, beat[3]);
+                            }
+                        }
+
+                        // Sunset dims into night; night cuts to morning.
+                        r.drawTitleCard(0.8 - Math.abs(t - DUSK) / 900);
+                        r.drawTitleCard(
+                            Math.min(1, 1.6 - Math.abs(t - CUT) / 1000),
+                            'THE NEXT MORNING');
+                    }
+                };
+            })()
         };
 
         this.setScene('idle');
@@ -1242,6 +1587,16 @@ class SceneManager {
         return 'idle';
     }
 
+    // What the sky is doing. Normally the real clock; a scene that tells a
+    // story across a night (the cruise ship party) supplies its own.
+    // Scene *selection* still follows the real clock — see sceneWeight().
+    timeOfDay() {
+        if (this.currentScene && this.currentScene.timeOfDay) {
+            return this.currentScene.timeOfDay(this.sceneState);
+        }
+        return this.calendar.getTimeOfDay();
+    }
+
     update() {
         this.frame++;
         const elapsed = Date.now() - this.sceneStartTime;
@@ -1255,7 +1610,7 @@ class SceneManager {
 
     render() {
         const holiday = this.calendar.getCurrentHoliday();
-        const timeOfDay = this.calendar.getTimeOfDay();
+        const timeOfDay = this.timeOfDay();
         const isNight = timeOfDay === 'night';
 
         // Layer order: sky/water → clouds → far actors (behind the island:
@@ -1336,7 +1691,7 @@ class SceneManager {
         const time = this.frame * 0.1;
 
         // Warm light pool on the sand — the campfire's whole point at night.
-        const isNight = this.calendar.isNight();
+        const isNight = this.timeOfDay() === 'night';
         const glowR = (75 + Math.sin(time * 2) * 7) * intensity;
         const glow = ctx.createRadialGradient(x, y - 5, 5, x, y - 5, glowR);
         glow.addColorStop(0, `rgba(255, 160, 60, ${isNight ? 0.45 : 0.18})`);

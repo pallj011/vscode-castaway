@@ -2343,6 +2343,679 @@ class Renderer {
         ctx.restore();
     }
 
+    // ------------------------------------------------------------------
+    // Hula, and the cruise ship that stops by for one night only
+    // ------------------------------------------------------------------
+
+    // A flower lei: blossoms strung along a U from shoulder to shoulder.
+    // Drawn in whatever local frame the caller has set up.
+    drawLei(cx, topY, halfW, drop) {
+        const ctx = this.ctx;
+        const colors = ['#FF6FA5', '#FFD23F', '#FFFFFF', '#FF8C42'];
+        for (let i = 0; i <= 8; i++) {
+            const k = i / 8;
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.beginPath();
+            ctx.arc(cx - halfW + k * halfW * 2, topY + Math.sin(k * Math.PI) * drop,
+                2.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Johnny doing the hula: feet planted, hips travelling, both arms
+    // rippling out to one side and then the other.
+    // opts.skirt: grass skirt (default on). opts.tipsy: 0-1, extra lean for
+    // a man who has been handed several drinks with umbrellas in them.
+    drawJohnnyHula(x, y, frame, opts = {}) {
+        const ctx = this.ctx;
+        const p = this.johnnyPalette();
+        const sway = Math.sin(frame * 0.1);
+        const lag = Math.sin(frame * 0.1 - 0.9);
+        const hipX = sway * 4.5;
+        const side = Math.max(-1, Math.min(1, Math.sin(frame * 0.025) * 2.5));
+        const ripple = Math.sin(frame * 0.22);
+        const tilt = -sway * 0.07 +
+            (opts.tipsy || 0) * Math.sin(frame * 0.04) * 0.2;
+
+        if (this.graphicsMode === 'modern') {
+            this.drawShadow(x, y + 2, 14, 4, 0.3);
+        }
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // The upper body pivots at the waist, counter to the hips.
+        const upper = (draw) => {
+            ctx.save();
+            ctx.translate(hipX, -30);
+            ctx.rotate(tilt);
+            ctx.translate(0, 30);
+            draw();
+            ctx.restore();
+        };
+
+        this.drawLimb(hipX - 3, -29, -5 + hipX * 0.6, -15, -6, 0, 5, p.skinShade);
+        this.drawLimb(hipX + 3, -29, 5 + hipX * 0.6, -15, 6, 0, 5, p.skin);
+        ctx.fillStyle = p.skin;
+        ctx.beginPath();
+        ctx.ellipse(-4.5, -0.5, 4, 2.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(7.5, -0.5, 4, 2.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        upper(() => this.drawJohnnyTorso(p));
+
+        if (opts.skirt !== false) {
+            // Grass skirt: strands flare from the waistband and swing a
+            // beat behind the hips.
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 2.6;
+            for (let i = 0; i <= 12; i++) {
+                const top = -9.5 + i * (19 / 12);
+                ctx.strokeStyle = i % 2 ? '#D9C566' : '#A9BE4A';
+                ctx.beginPath();
+                ctx.moveTo(hipX + top, -31);
+                ctx.quadraticCurveTo(hipX + top * 1.5, -22,
+                    hipX + top * 1.8 - lag * 5, -11 + (i % 3));
+                ctx.stroke();
+            }
+            ctx.strokeStyle = '#6F8A2A';
+            ctx.lineWidth = 3.2;
+            ctx.beginPath();
+            ctx.moveTo(hipX - 9.5, -31.5);
+            ctx.lineTo(hipX + 9.5, -31.5);
+            ctx.stroke();
+        }
+
+        upper(() => {
+            for (const sx of [-7, 7]) {
+                // cross: this arm is reaching over the chest.
+                // tuck: mid-swap, the hands drop through on their way across.
+                const cross = (1 - side * Math.sign(sx)) / 2;
+                const tuck = 1 - Math.abs(side);
+                const wave = ripple * (sx < 0 ? 1 : -1);
+                this.drawLimb(sx, -47,
+                    sx + side * 10, -46 + cross * 5 + tuck * 5 + wave * 1.5,
+                    sx + side * 20, -45 + cross * 2 + tuck * 12 - wave * 3,
+                    4.5, sx < 0 ? p.skinShade : p.skin);
+            }
+            ctx.strokeStyle = p.shirtDark;
+            ctx.lineWidth = 5.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-7, -48);
+            ctx.lineTo(-7 + side * 2.5, -45);
+            ctx.moveTo(7, -48);
+            ctx.lineTo(7 + side * 2.5, -45);
+            ctx.stroke();
+
+            if (opts.lei !== false) {
+                this.drawLei(0, -51, 7.5, 9);
+            }
+            this.drawJohnnyHead(0, -61, p);
+
+            // Flower tucked in the hair
+            ctx.fillStyle = '#FF6FA5';
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const a = (i / 5) * Math.PI * 2;
+                ctx.moveTo(8 + Math.cos(a) * 2.4, -70 + Math.sin(a) * 2.4);
+                ctx.arc(8 + Math.cos(a) * 2.4, -70 + Math.sin(a) * 2.4,
+                    2, 0, Math.PI * 2);
+            }
+            ctx.fill();
+            ctx.fillStyle = '#FFD23F';
+            ctx.beginPath();
+            ctx.arc(8, -70, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+
+    // A red party cup, anchored at its base.
+    drawPartyCup(x, y) {
+        const ctx = this.ctx;
+        ctx.fillStyle = '#D7263D';
+        ctx.beginPath();
+        ctx.moveTo(x - 3.4, y - 8);
+        ctx.lineTo(x + 3.4, y - 8);
+        ctx.lineTo(x + 2.4, y);
+        ctx.lineTo(x - 2.4, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(x - 3.4, y - 8, 6.8, 1.6);
+    }
+
+    // A paper party hat, anchored at the middle of its brim.
+    drawPartyHat(x, y, scale = 1) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#FF4D6D';
+        ctx.beginPath();
+        ctx.moveTo(-6, 0);
+        ctx.lineTo(6, 0);
+        ctx.lineTo(0, -15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#FFD23F';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(-3.6, -6);
+        ctx.lineTo(3.6, -6);
+        ctx.stroke();
+        ctx.fillStyle = '#FFD23F';
+        ctx.beginPath();
+        ctx.arc(0, -15, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // A cruise passenger, anchored at the feet like Johnny.
+    // opts.look: { shirt, print, shorts, skin, hair, longHair, shades, lei,
+    //              hat: 'sun' | 'cap' | 'party' }
+    // opts.pose: 'walk' | 'dance' | 'drink' | 'photo'
+    // opts.dir, opts.phase (desyncs the crowd), opts.alpha.
+    drawGuest(x, y, frame, opts = {}) {
+        const ctx = this.ctx;
+        const look = opts.look || {};
+        const skin = look.skin || '#E8B080';
+        const pose = opts.pose || 'dance';
+        const dir = opts.dir || 1;
+        const alpha = opts.alpha === undefined ? 1 : opts.alpha;
+        const ph = frame * 0.2 + (opts.phase || 0);
+        const s = Math.sin(ph);
+        const walking = pose === 'walk';
+        const bob = pose === 'dance' ? Math.abs(s) * 2.5 : 0;
+
+        if (this.graphicsMode === 'modern' && alpha >= 1) {
+            this.drawShadow(x, y + 2, 13, 4, 0.3);
+        }
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        if (dir < 0) {
+            ctx.scale(-1, 1);
+        }
+
+        // Legs and sandals
+        if (walking) {
+            this.drawLimb(-3, -29, -4 - s * 4, -15, -s * 8, 0, 5, skin);
+            this.drawLimb(3, -29, 4 + s * 4, -15, s * 8, 0, 5, skin);
+        } else {
+            this.drawLimb(-3, -29 + bob, -6, -15 + bob * 0.5, -5, 0, 5, skin);
+            this.drawLimb(3, -29 + bob, 6, -15 + bob * 0.5, 5, 0, 5, skin);
+        }
+        ctx.fillStyle = '#5A4632';
+        ctx.beginPath();
+        ctx.ellipse((walking ? -s * 8 : -5) + 1.5, -0.5, 4.2, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse((walking ? s * 8 : 5) + 1.5, -0.5, 4.2, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.translate(0, bob);
+
+        // Shorts, and a shirt chosen specifically for this trip
+        ctx.fillStyle = look.shorts || '#E9DFC3';
+        ctx.beginPath();
+        ctx.roundRect(-8.5, -32, 17, 13, 2);
+        ctx.fill();
+        ctx.fillStyle = look.shirt || '#1FA3A3';
+        ctx.beginPath();
+        ctx.roundRect(-9.5, -53, 19, 24, 4);
+        ctx.fill();
+        ctx.fillStyle = look.print || '#FFE066';
+        ctx.beginPath();
+        for (const [px, py] of [[-5, -47], [3, -44], [-2, -39], [5, -35], [-6, -33]]) {
+            ctx.moveTo(px + 1.7, py);
+            ctx.arc(px, py, 1.7, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        // Arms
+        const sh = -48;
+        if (pose === 'dance') {
+            this.drawLimb(-8, sh, -14, -55 - s * 3, -12, -66 - s * 5, 4.5, skin);
+            this.drawLimb(8, sh, 14, -55 + s * 3, 12, -66 + s * 5, 4.5, skin);
+        } else if (pose === 'drink') {
+            const lift = Math.max(0, Math.sin(ph * 0.3)) * 9;
+            this.drawLimb(-8, sh, -11, -40, -10, -31, 4.5, skin);
+            this.drawLimb(8, sh, 13, -40, 15, -44 - lift, 4.5, skin);
+            this.drawPartyCup(15.5, -44 - lift);
+        } else if (pose === 'photo') {
+            this.drawLimb(-8, sh, -11, -40, -10, -31, 4.5, skin);
+            this.drawLimb(8, sh, 14, -50, 20, -58, 4.5, skin);
+            ctx.fillStyle = '#1B1B1F';
+            ctx.beginPath();
+            ctx.roundRect(17, -68, 7, 11, 1.5);
+            ctx.fill();
+            ctx.fillStyle = '#9FD8FF';
+            ctx.fillRect(18, -66.5, 5, 8);
+        } else {
+            this.drawLimb(-8, sh, -9 + s * 4, -39, -6 + s * 7, -32, 4.5, skin);
+            this.drawLimb(8, sh, 9 - s * 4, -39, 6 - s * 7, -32, 4.5, skin);
+        }
+
+        if (look.lei) {
+            this.drawLei(0, -52, 8, 9);
+        }
+
+        // Head
+        ctx.fillStyle = skin;
+        ctx.beginPath();
+        ctx.arc(0, -62, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = look.hair || '#3B2A1A';
+        ctx.beginPath();
+        ctx.arc(0, -63.5, 9.2, Math.PI, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+        if (look.longHair) {
+            ctx.fillRect(-9.2, -64, 3.6, 13);
+            ctx.fillRect(5.6, -64, 3.6, 13);
+        }
+        if (look.shades) {
+            ctx.fillStyle = '#111111';
+            ctx.beginPath();
+            ctx.roundRect(-7.5, -63.5, 15, 4.5, 2);
+            ctx.fill();
+        } else {
+            ctx.fillStyle = '#2A1A0E';
+            ctx.beginPath();
+            ctx.arc(-3.2, -61.5, 1.3, 0, Math.PI * 2);
+            ctx.arc(3.2, -61.5, 1.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#7A3B2E';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(0, -58.5, 3.2, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        if (look.hat === 'sun') {
+            ctx.fillStyle = '#F2E2B0';
+            ctx.beginPath();
+            ctx.ellipse(0, -67.5, 15, 3.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, -68, 7.5, Math.PI, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#D7263D';
+            ctx.fillRect(-7.5, -70.5, 15, 2.4);
+        } else if (look.hat === 'cap') {
+            ctx.fillStyle = '#2B62C9';
+            ctx.beginPath();
+            ctx.arc(0, -65, 9.4, Math.PI, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.roundRect(3, -67.5, 13, 3, 1.5);
+            ctx.fill();
+        } else if (look.hat === 'party') {
+            this.drawPartyHat(0, -70);
+        }
+
+        ctx.restore();
+    }
+
+    // A cruise ship, anchored at the middle of its waterline, bow to the
+    // right. opts.scale; opts.lit: cabin lights on; opts.party: a string of
+    // bulbs from stern to funnel to bow; opts.smoke: under way.
+    drawCruiseShip(x, y, frame, opts = {}) {
+        const ctx = this.ctx;
+        const sc = opts.scale || 1;
+        const lit = !!opts.lit;
+        ctx.save();
+        ctx.translate(x, y + Math.sin(frame * 0.03) * 1.2 * sc);
+        ctx.scale(sc, sc);
+
+        if (opts.smoke) {
+            ctx.fillStyle = '#C9CED3';
+            for (let i = 0; i < 4; i++) {
+                const t = ((frame * 0.7 + i * 25) % 100) / 100;
+                ctx.globalAlpha = (1 - t) * 0.45;
+                ctx.beginPath();
+                ctx.arc(-22 - t * 55, -114 - t * 30, 5 + t * 9, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Funnel
+        ctx.fillStyle = '#D7263D';
+        ctx.beginPath();
+        ctx.moveTo(-35, -84);
+        ctx.lineTo(-31, -110);
+        ctx.lineTo(-10, -110);
+        ctx.lineTo(-7, -84);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#1F2A38';
+        ctx.fillRect(-31.5, -110, 22, 6);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-33.6, -98, 25.6, 4);
+
+        // Three decks, stepping back toward the funnel
+        const decks = [[-108, 92, -52, -36], [-94, 74, -68, -52], [-74, 48, -84, -68]];
+        for (const [x1, x2, top, bottom] of decks) {
+            ctx.fillStyle = lit ? '#DDE3EE' : '#FFFFFF';
+            ctx.beginPath();
+            ctx.roundRect(x1, top, x2 - x1, bottom - top, [4, 9, 0, 0]);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(31, 58, 95, 0.3)';
+            ctx.fillRect(x1, bottom - 1.2, x2 - x1, 1.2);
+            let n = 0;
+            for (let wx = x1 + 6; wx < x2 - 9; wx += 9, n++) {
+                // A few cabins have turned in early.
+                const dark = lit && (n * 7 + Math.abs(top)) % 6 === 0;
+                ctx.fillStyle = lit ? (dark ? '#56627A' : '#FFD76A') : '#4F7FA8';
+                ctx.fillRect(wx, top + 5, 5, 6);
+            }
+        }
+
+        // Hull
+        if (this.graphicsMode === 'classic') {
+            ctx.fillStyle = '#FFFFFF';
+        } else {
+            const g = ctx.createLinearGradient(0, -38, 0, 0);
+            g.addColorStop(0, lit ? '#E6EAF2' : '#FFFFFF');
+            g.addColorStop(1, lit ? '#B9C2D0' : '#D5DEE8');
+            ctx.fillStyle = g;
+        }
+        ctx.beginPath();
+        ctx.moveTo(-128, -36);
+        ctx.lineTo(-120, 0);
+        ctx.lineTo(104, 0);
+        ctx.lineTo(138, -39);
+        ctx.lineTo(98, -36);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#1F3A5F';
+        ctx.beginPath();
+        ctx.moveTo(-122, -9);
+        ctx.lineTo(-120, 0);
+        ctx.lineTo(104, 0);
+        ctx.lineTo(112, -9);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#D7263D';
+        ctx.fillRect(-124, -19, 245, 2.5);
+        ctx.fillStyle = lit ? '#FFD76A' : '#4F7FA8';
+        ctx.beginPath();
+        for (let px = -108; px <= 100; px += 13) {
+            ctx.moveTo(px + 2.3, -28);
+            ctx.arc(px, -28, 2.3, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        if (opts.party) {
+            const colors = ['#FF4D6D', '#FFD23F', '#4ADE80', '#5BC0FF', '#FF8C42'];
+            const spans = [[-126, -41, -20, -113], [-20, -113, 134, -44]];
+            let n = 0;
+            for (const [ax, ay, bx, by] of spans) {
+                for (let i = 0; i <= 9; i++, n++) {
+                    const k = i / 9;
+                    const on = (n + Math.floor(frame / 14)) % 3 !== 0;
+                    ctx.globalAlpha = on ? 1 : 0.35;
+                    ctx.fillStyle = colors[n % colors.length];
+                    ctx.beginPath();
+                    ctx.arc(ax + (bx - ax) * k,
+                        ay + (by - ay) * k + Math.sin(k * Math.PI) * 9,
+                        2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Foam along the waterline
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.beginPath();
+        ctx.ellipse(-8, 1, 126, 2.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Music notes rising from (x, y).
+    drawMusicNotes(x, y, frame, count = 3) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < count; i++) {
+            const t = ((frame * 1.1 + i * (90 / count)) % 90) / 90;
+            const nx = x + Math.sin(t * 5 + i * 2) * 8;
+            const ny = y - t * 42;
+            ctx.globalAlpha = Math.min(1, (1 - t) * 1.4);
+            ctx.beginPath();
+            ctx.ellipse(nx, ny, 3.6, 2.8, -0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(nx + 3.3, ny + 0.8);
+            ctx.lineTo(nx + 3.3, ny - 9.5);
+            ctx.lineTo(nx + 8, ny - 7.4);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // A mirror ball on a cord. (x, y) is the centre of the ball; the cord
+    // runs up `cord` px to whatever is carrying it.
+    drawDiscoBall(x, y, frame, cord = 0) {
+        const ctx = this.ctx;
+        const r = 11;
+        ctx.save();
+        if (cord > 0) {
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x, y - r - cord);
+            ctx.lineTo(x, y - r);
+            ctx.stroke();
+        }
+        if (this.graphicsMode === 'classic') {
+            ctx.fillStyle = '#B8C4D0';
+        } else {
+            const g = ctx.createRadialGradient(x - 4, y - 4, 1, x, y, r);
+            g.addColorStop(0, '#FFFFFF');
+            g.addColorStop(0.5, '#B8C4D0');
+            g.addColorStop(1, '#5E6A78');
+            ctx.fillStyle = g;
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mirror tiles: latitude bands, and meridians that drift round so
+        // the ball reads as turning.
+        ctx.strokeStyle = 'rgba(40, 50, 65, 0.55)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        for (const dy of [-6, -2, 2, 6]) {
+            const half = Math.sqrt(r * r - dy * dy);
+            ctx.moveTo(x - half, y + dy);
+            ctx.lineTo(x + half, y + dy);
+        }
+        for (let i = 0; i < 4; i++) {
+            const k = Math.cos(frame * 0.04 + (i * Math.PI) / 4);
+            ctx.moveTo(x + k * r, y);
+            ctx.ellipse(x, y, Math.abs(k) * r, r, 0, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+
+        // Glints, a different pair of tiles every few frames
+        const tick = Math.floor(frame / 6);
+        const colors = ['#FFFFFF', '#FFD23F', '#FF6FA5', '#5BC0FF'];
+        for (let i = 0; i < 3; i++) {
+            const a = (tick * 2.4 + i * 2.1) % (Math.PI * 2);
+            const gx = x + Math.cos(a) * r * 0.6;
+            const gy = y + Math.sin(a * 1.7) * r * 0.6;
+            ctx.strokeStyle = colors[(tick + i) % colors.length];
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(gx - 3.5, gy);
+            ctx.lineTo(gx + 3.5, gy);
+            ctx.moveTo(gx, gy - 3.5);
+            ctx.lineTo(gx, gy + 3.5);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // Coloured beams from a mirror ball at (bx, by), and the spots they
+    // throw as they sweep the sand around (cx, cy).
+    drawDiscoLights(bx, by, frame, cx, cy) {
+        const ctx = this.ctx;
+        const colors = ['255, 77, 109', '255, 210, 63', '74, 222, 128',
+            '91, 192, 255', '200, 120, 255', '255, 140, 66'];
+        ctx.save();
+        for (let i = 0; i < colors.length; i++) {
+            const a = frame * 0.03 + i * 1.05;
+            const sx = cx + Math.cos(a) * (90 + i * 16);
+            const sy = cy + Math.sin(a * 1.3 + i) * 16;
+            ctx.fillStyle = `rgba(${colors[i]}, 0.09)`;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(sx - 15, sy);
+            ctx.lineTo(sx + 15, sy);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = `rgba(${colors[i]}, 0.4)`;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 16, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    // What a party leaves on a beach. kind: 'cup' | 'can' | 'bottle' |
+    // 'streamer' | 'lei' | 'float'. seed varies colour and lie.
+    drawLitter(x, y, kind, seed = 0) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        const ps = this.propScale();
+        ctx.scale(ps, ps);
+
+        if (kind === 'cup') {
+            ctx.rotate(seed % 2 ? 1.35 : -1.25);
+            this.drawPartyCup(0, 3);
+        } else if (kind === 'can') {
+            ctx.rotate(seed % 2 ? 0.2 : -0.3);
+            ctx.fillStyle = '#B8C4CC';
+            ctx.beginPath();
+            ctx.roundRect(-5, -3, 10, 6, 1.5);
+            ctx.fill();
+            ctx.fillStyle = '#3FA34D';
+            ctx.fillRect(-2, -3, 4, 6);
+        } else if (kind === 'bottle') {
+            ctx.rotate(-0.15);
+            ctx.fillStyle = '#2F7D4F';
+            ctx.beginPath();
+            ctx.roundRect(-8, -3.2, 11, 6.4, 2);
+            ctx.fill();
+            ctx.fillRect(2, -1.5, 7, 3);
+            ctx.fillStyle = '#F2E2B0';
+            ctx.fillRect(-5, -3.2, 5, 6.4);
+        } else if (kind === 'streamer') {
+            ctx.strokeStyle = ['#FF4D6D', '#5BC0FF', '#FFD23F'][seed % 3];
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-12, 0);
+            ctx.quadraticCurveTo(-8, -6, -4, 0);
+            ctx.quadraticCurveTo(0, 6, 4, 0);
+            ctx.quadraticCurveTo(8, -6, 12, 1);
+            ctx.stroke();
+        } else if (kind === 'lei') {
+            const colors = ['#FF6FA5', '#FFD23F', '#FFFFFF', '#FF8C42'];
+            for (let i = 0; i < 10; i++) {
+                const a = (i / 10) * Math.PI * 2;
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.beginPath();
+                ctx.arc(Math.cos(a) * 9, Math.sin(a) * 3.5, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else if (kind === 'float') {
+            // A flamingo pool ring, no longer at its best
+            ctx.strokeStyle = '#FF8FB8';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 15, 5, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(13, -2);
+            ctx.quadraticCurveTo(22, -16, 27, -3);
+            ctx.stroke();
+            ctx.fillStyle = '#FF8FB8';
+            ctx.beginPath();
+            ctx.arc(27, -2, 3.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#2A1A0E';
+            ctx.fillRect(29, -1.5, 4, 2.4);
+        }
+        ctx.restore();
+    }
+
+    // A bin bag, anchored at its base. fill: 0-1, how much party is in it.
+    drawTrashBag(x, y, fill = 0) {
+        const ctx = this.ctx;
+        const w = 7 + fill * 5;
+        const h = 8 + fill * 7;
+        ctx.fillStyle = '#23262B';
+        ctx.beginPath();
+        ctx.ellipse(x, y - h, w, h, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x - 3, y - h * 2 + 1);
+        ctx.lineTo(x - 5, y - h * 2 - 6);
+        ctx.lineTo(x + 5, y - h * 2 - 6);
+        ctx.lineTo(x + 3, y - h * 2 + 1);
+        ctx.closePath();
+        ctx.fill();
+        if (this.graphicsMode !== 'classic') {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(x - w * 0.2, y - h, w * 0.6, Math.PI * 1.05, Math.PI * 1.45);
+            ctx.stroke();
+        }
+    }
+
+    // Fade the whole scene to black; once it is dark enough, a silent-film
+    // caption. Covers a jump in the scene's clock.
+    drawTitleCard(alpha, text) {
+        if (alpha <= 0) return;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, alpha);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, this.width, this.height);
+        if (text && alpha > 0.6) {
+            const ts = this.textScale || 1;
+            let fontSize = 22 * ts;
+            if (this.viewScale && this.viewScale < 0.9) {
+                fontSize = Math.max(fontSize, (15 * ts) / this.viewScale);
+            }
+            ctx.globalAlpha = Math.min(1, (alpha - 0.6) / 0.3);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `${Math.min(44 * ts, fontSize)}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text,
+                ((this.visibleLeft ?? 0) + (this.visibleRight ?? this.width)) / 2,
+                this.height * 0.48);
+        }
+        ctx.restore();
+    }
+
     // Camera-flash overlay for selfies.
     drawFlash(alpha) {
         if (alpha <= 0) return;

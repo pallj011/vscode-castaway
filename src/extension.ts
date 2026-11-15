@@ -32,6 +32,8 @@ const SCENES: { id: string; label: string; detail: string }[] = [
     { id: 'standup', label: 'Daily Standup', detail: 'Any blockers? Just the one' },
     { id: 'voiceAssistant', label: 'Hey Coco', detail: 'Playing "Help" by The Beatles' },
     { id: 'printer', label: 'Printer Says No', detail: 'Replace CYAN cartridge' },
+    { id: 'hula', label: 'Hula', detail: "It's all in the hips. The crab gets it" },
+    { id: 'cruiseParty', label: 'Cruise Ship Party', detail: 'Rescued! For one night. Then the cleanup' },
 ];
 
 const PHONE_SCENES = [
